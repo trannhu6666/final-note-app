@@ -1,58 +1,98 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 📝 FINAL PROJECT: MYNOTES - WEB PROGRAMMING & APPLICATIONS
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+## 1. TEAM MEMBERS
+* **Dev A (Frontend UI/UX & Client Logic):** Tran Thi Ngoc Nhu - 524H0021
+  * **Roles:** UI/UX Design, Responsive Layouts, Grid/List View toggle, Live Search, Offline PWA capabilities, Real-time WebSocket UI.
+* **Dev B (Backend, Database & API):** Nguyen Thanh An - 519H0133
+  * **Roles:** Database Design, Authentication (Login/Register/OTP), CRUD operations for Notes/Labels, RESTful APIs, WebSocket Server configuration.
 
-## About Laravel
+> **Note:** Detailed task delegation is further demonstrated in the source code commit history and the Demo Video.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## 2. VIDEO DEMO LINK
+* **YouTube Link:** [Insert your YouTube video link here]
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 3. SYSTEM REQUIREMENTS
+To run this project correctly, please ensure your machine has:
+* PHP >= 8.1
+* Composer
+* Node.js & NPM
+* MySQL / MariaDB (XAMPP/MAMP/Laragon)
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## 4. INSTALLATION & SETUP GUIDE
+Please follow these steps strictly to run the application locally:
 
-## Learning Laravel
+**Step 1:** Unzip the project folder and open the terminal inside the root directory.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
+**Step 2:** Install PHP dependencies:
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+composer install
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+**Step 3:** Install Node.js dependencies:
+```bash
+npm install
+```
 
-## Contributing
+**Step 4:** Copy the environment file:
+```bash
+cp .env.example .env
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+**Step 5:** Generate the application key:
+```bash
+php artisan key:generate
+```
 
-## Code of Conduct
+**Step 6:** Configure your Database connection in the `.env` file. Open XAMPP/MySQL and create a database named `mynotes_db`, then update the `.env` file:
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=mynotes_db
+DB_USERNAME=root
+DB_PASSWORD=
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+**Step 7:** Run database migrations and seeders (to load tables and test data):
+```bash
+php artisan migrate --seed
+```
 
-## Security Vulnerabilities
+**Step 8:** Build Frontend assets (Vite/Mix):
+```bash
+npm run build
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+**Step 9:** Start the Laravel local server:
+```bash
+php artisan serve
+```
+👉 The application will be accessible at: `http://localhost:8000`
 
-## License
+## 5. TEST ACCOUNTS (CREDENTIALS)
+For evaluation purposes, we have seeded the following test accounts with pre-loaded data:
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+**[Account 1 - Note Owner]**
+* **Email:** user1@tdtu.edu.vn
+* **Password:** password123
+
+**[Account 2 - Collaborator]** *(Used for testing Shared Notes & Real-time features)*
+* **Email:** user2@tdtu.edu.vn
+* **Password:** password123
+
+## 6. SPECIAL CONFIGURATIONS
+
+### Real-time WebSocket
+* We utilized Laravel Reverb (or Pusher/Echo) for Real-time UI collaboration.
+* Please ensure you have internet access, or run the local WebSocket server using: 
+```bash
+php artisan reverb:start
+```
+
+### Progressive Web App & Offline Mode
+* To test the Offline Mode, please use Google Chrome or Microsoft Edge.
+* Open **Developer Tools (F12)** -> Navigate to the **Network** tab -> Change throttling to **Offline**.
+* The application will utilize the Service Worker (`sw.js`) and IndexedDB to cache the UI and save notes locally without an internet connection.
+
+---
+*Thank you for reviewing our project!*
