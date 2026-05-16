@@ -11,11 +11,14 @@
     <script src="https://cdn.jsdelivr.net/npm/pusher-js@8.3.0/dist/web/pusher.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/laravel-echo@1.15.3/dist/echo.iife.js"></script>
     <style>
-        /* --- CUSTOM PINK THEME OVERRIDES --- */
+        /* --- CUSTOM PINK THEME --- */
         :root {
-            /* Đổi màu Primary gốc sang Hồng */
             --bs-primary: #e83e8c;
             --bs-primary-rgb: 232, 62, 140;
+
+            /* Thêm giá trị mặc định cho Note */
+            --note-font-size: 1rem;
+            --note-bg-color: #ffffff;
         }
 
         /* Đổi màu nền Navbar và các thẻ dùng bg-primary */
@@ -57,6 +60,14 @@
         }
 
         /* --- DARK MODE OVERRIDES --- */
+        [data-bs-theme="dark"] {
+            --note-bg-color: #2b3035;
+        }
+
+        [data-bs-theme="dark"] .note-card {
+            color: #f8f9fa !important;
+        }
+
         [data-bs-theme="dark"] body {
             background-color: #121212 !important;
         }
@@ -80,6 +91,21 @@
             background-color: #2b3035;
             border-color: #495057;
             color: #fff;
+        }
+
+        /* --- USER PREFERENCES FOR ALL NOTE CARDS (Trang chủ & Shared with me) --- */
+        .note-card {
+            background-color: var(--note-bg-color, #ffffff) !important;
+        }
+
+        .note-card .card-title {
+            /* Tiêu đề tự động to hơn font nội dung một chút */
+            font-size: calc(var(--note-font-size, 1rem) + 0.25rem) !important;
+        }
+
+        .note-card .card-text {
+            font-size: var(--note-font-size, 1rem) !important;
+            /* Cỡ chữ nội dung */
         }
     </style>
 </head>

@@ -6,7 +6,7 @@
             <div class="card shadow border-0 p-4">
                 <h2 class="fw-bold text-center mb-4"><i class="bi bi-journal-text text-primary"></i> MyNotes</h2>
 
-                <!-- Thông báo chưa kích hoạt (Tiêu chí 2)[cite: 1] -->
+                <!-- Thông báo chưa kích hoạt -->
                 <div class="alert alert-warning text-center d-none" role="alert">
                     Your account is unverified. Please check your email.
                 </div>
