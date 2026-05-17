@@ -16,7 +16,7 @@ wss.on('connection', function connection(ws) {
         // Phát (Broadcast) dữ liệu này tới TẤT CẢ các client khác đang kết nối
         wss.clients.forEach(function each(client) {
             // Trạng thái 1 tương đương với WebSocket.OPEN (Đang kết nối)
-            if (client !== ws && client.readyState === 1) { 
+            if (client !== ws && client.readyState === 1) {
                 client.send(data);
             }
         });

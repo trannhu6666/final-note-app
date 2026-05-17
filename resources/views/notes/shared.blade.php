@@ -6,48 +6,11 @@
             <i class="bi bi-people-fill me-2"></i>Shared with me
         </h3>
 
-        <div class="row g-4" id="shared-notes-container">
-            <div class="col-md-4 note-wrapper">
-                <div class="card h-100 shadow-sm border-0 note-card">
-                    <div class="card-body">
-                        <h5 class="card-title fw-bold">Tài liệu tham khảo</h5>
-                        <p class="card-text text-muted">File PDF hướng dẫn làm đồ án...</p>
-                    </div>
-                    <div class="card-footer bg-transparent d-flex flex-column small border-top-0 pt-0">
-                        <span class="text-muted mb-2">
-                            <i class="bi bi-person-circle text-secondary me-1"></i> Shared by: teacher@tdtu.edu.vn
-                        </span>
-                        <span
-                            class="badge bg-secondary text-white w-auto align-self-start px-3 py-2 rounded-pill shadow-sm">
-                            <i class="bi bi-eye me-1"></i> Read-only
-                        </span>
-                    </div>
-                </div>
-            </div>
+        <div class="mb-4 w-50">
+            <input type="text" id="search-box" class="form-control" placeholder="Search shared notes...">
+        </div>
 
-            <div class="col-md-4 note-wrapper">
-                <div class="card h-100 shadow-sm border-primary note-card editable-note" style="cursor: pointer;"
-                    data-note-id="shared_123" data-note-title="Brainstorming UX/UI"
-                    data-note-content="Các ý tưởng thiết kế giao diện...">
-                    <div class="card-body">
-                        <h5 class="card-title fw-bold">Brainstorming UX/UI</h5>
-                        <p class="card-text">Các ý tưởng thiết kế giao diện...</p>
-                    </div>
-                    <div class="card-footer bg-transparent d-flex flex-column small border-top-0 pt-0">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="text-muted">
-                                <i class="bi bi-person-circle text-primary me-1"></i> teammate@tdtu.edu.vn
-                            </span>
-                            <span class="text-muted" style="font-size: 0.75rem;">
-                                <i class="bi bi-clock me-1"></i> May 16, 2026 10:00 AM
-                            </span>
-                        </div>
-                        <span class="badge bg-primary text-white w-auto align-self-start px-3 py-2 rounded-pill shadow-sm">
-                            <i class="bi bi-pencil-square me-1"></i> Can Edit
-                        </span>
-                    </div>
-                </div>
-            </div>
+        <div class="row g-4" id="shared-notes-container">
         </div>
     </div>
 
@@ -78,51 +41,153 @@
     </div>
 
     <script>
+        // Hàm lấy Token chung
+        function getAuthHeaders(isFormData = false) {
+            const token = localStorage.getItem('user_token');
+            const headers = {};
+            if (!isFormData) headers['Content-Type'] = 'application/json';
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            return headers;
+        }
+
+        let currentEditingNoteId = null;
+
         document.addEventListener('DOMContentLoaded', function () {
+            const container = document.getElementById('shared-notes-container');
 
-            // --- 1. XỬ LÝ CLICK GHI CHÚ ĐƯỢC EDIT ---
-            document.querySelectorAll('.editable-note').forEach(card => {
-                card.addEventListener('click', function () {
-                    const title = this.getAttribute('data-note-title');
-                    const content = this.getAttribute('data-note-content');
-                    const noteId = this.getAttribute('data-note-id');
+            // --- 1. GỌI API LẤY DANH SÁCH NOTE ĐƯỢC CHIA SẺ ---
+            function fetchSharedNotes() {
+                fetch('/api/notes/shared', {
+                    method: 'GET',
+                    headers: getAuthHeaders()
+                })
+                    .then(async res => {
+                        const contentType = res.headers.get("content-type");
+                        if (!contentType || !contentType.includes("application/json")) {
+                            throw new Error("API /api/notes/shared lỗi 500 hoặc chưa được code!");
+                        }
+                        return res.json();
+                    })
+                    .then(response => {
+                        if (response.status === 'success') {
+                            renderSharedNotes(response.data || []);
+                        } else {
+                            alert(response.message || "Lấy danh sách thất bại!");
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Lỗi fetch shared notes:", err);
+                        container.innerHTML = `<div class="col-12 text-center text-danger py-5 border border-danger rounded bg-light mt-3">
+                                <h5><i class="bi bi-bug"></i> Backend API Error</h5><p>${err.message}</p>
+                            </div>`;
+                    });
+            }
 
-                    document.getElementById('noteTitle').value = title;
-                    document.getElementById('noteContent').value = content;
+            // --- 2. RENDER DỮ LIỆU RA GIAO DIỆN ---
+            function renderSharedNotes(notes) {
+                container.innerHTML = '';
 
-                    const editorModal = new bootstrap.Modal(document.getElementById('editorModal'));
-                    editorModal.show();
+                if (notes.length === 0) {
+                    container.innerHTML = `<div class="col-12 text-center text-muted py-5"><i class="bi bi-folder-x" style="font-size: 3rem;"></i><p class="mt-3">No shared notes found!</p></div>`;
+                    return;
+                }
 
-                    if (typeof joinNoteChannel === 'function') {
-                        joinNoteChannel(noteId);
+                notes.forEach(note => {
+                    // Phân loại giao diện dựa trên quyền (Read-only hay Can Edit)
+                    const isEdit = (note.permission === 'edit');
+                    const badgeClass = isEdit ? 'bg-primary' : 'bg-secondary';
+                    const badgeIcon = isEdit ? 'bi-pencil-square' : 'bi-eye';
+                    const badgeText = isEdit ? 'Can Edit' : 'Read-only';
+                    const cursorStyle = isEdit ? 'cursor: pointer;' : 'cursor: default;';
+                    const borderClass = isEdit ? 'border-primary editable-note shadow-sm' : 'border-0 shadow-sm';
+                    const contentSnippet = note.content || '...';
+
+                    const col = document.createElement('div');
+                    col.className = 'col-md-4 note-wrapper';
+                    col.innerHTML = `
+                                <div class="card h-100 note-card ${borderClass}" style="${cursorStyle}">
+                                    <div class="card-body">
+                                        <h5 class="card-title fw-bold">${note.title || 'Untitled'}</h5>
+                                        <p class="card-text text-muted" style="display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">${contentSnippet}</p>
+                                    </div>
+                                    <div class="card-footer bg-transparent d-flex flex-column small border-top-0 pt-0">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span class="text-muted text-truncate" style="max-width: 60%;" title="${note.owner_email}">
+                                                <i class="bi bi-person-circle text-primary me-1"></i> ${note.owner_email}
+                                            </span>
+                                            <span class="text-muted" style="font-size: 0.75rem;">
+                                                <i class="bi bi-clock me-1"></i> ${new Date(note.shared_at).toLocaleDateString()}
+                                            </span>
+                                        </div>
+                                        <span class="badge ${badgeClass} text-white w-auto align-self-start px-3 py-2 rounded-pill">
+                                            <i class="bi ${badgeIcon} me-1"></i> ${badgeText}
+                                        </span>
+                                    </div>
+                                </div>
+                            `;
+
+                    // Nếu có quyền Edit, cho phép click vào card để mở Editor Modal
+                    if (isEdit) {
+                        col.querySelector('.note-card').addEventListener('click', () => {
+                            openSharedNoteEditor(note);
+                        });
                     }
-                });
-            });
 
-            // --- 2. LOGIC AUTO-SAVE ---
+                    container.appendChild(col);
+                });
+            }
+
+            // Gọi API lần đầu khi load trang
+            fetchSharedNotes();
+
+
+            // --- 3. LOGIC MỞ MODAL VÀ REALTIME ---
             const noteTitleInput = document.getElementById('noteTitle');
             const noteContentInput = document.getElementById('noteContent');
             const saveStatusIndicator = document.getElementById('saveStatusIndicator');
-            let autoSaveTimeout;
 
+            function openSharedNoteEditor(note) {
+                currentEditingNoteId = note.id;
+                noteTitleInput.value = note.title || '';
+                noteContentInput.value = note.content || '';
+
+                new bootstrap.Modal(document.getElementById('editorModal')).show();
+
+                // Tham gia kênh Realtime WebSocket cho note này
+                joinNoteRealtimeChannel(note.id);
+            }
+
+            // --- 4. AUTO-SAVE LÊN BACKEND (API PUT /api/notes/{id}) ---
+            let autoSaveTimeout;
             function triggerAutoSave() {
+                if (!currentEditingNoteId) return; // Note shared không có quyền tạo mới, chỉ update
+
                 if (saveStatusIndicator) {
-                    saveStatusIndicator.innerHTML = '<span class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></span> Saving...';
+                    saveStatusIndicator.innerHTML = '<span class="spinner-border spinner-border-sm text-primary"></span> Saving...';
                 }
 
                 clearTimeout(autoSaveTimeout);
-
                 autoSaveTimeout = setTimeout(() => {
-                    if (navigator.onLine) {
-                        setTimeout(() => {
-                            saveStatusIndicator.innerHTML = '<i class="bi bi-cloud-check text-success"></i> Saved to Cloud';
-                        }, 500);
-                    }
+                    fetch(`/api/notes/${currentEditingNoteId}`, {
+                        method: 'PUT',
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify({
+                            title: noteTitleInput.value,
+                            content: noteContentInput.value
+                        })
+                    })
+                        .then(res => res.json())
+                        .then(response => {
+                            if (response.status === 'success') {
+                                saveStatusIndicator.innerHTML = '<i class="bi bi-cloud-check text-success"></i> Saved';
+                                fetchSharedNotes(); // Cập nhật lại list ở ngoài
+                            }
+                        })
+                        .catch(err => console.error(err));
                 }, 1500);
 
-                if (typeof broadcastTyping === 'function') {
-                    broadcastTyping();
-                }
+                // Phát tín hiệu Realtime ngay khi gõ
+                broadcastTypingStatus();
             }
 
             if (noteTitleInput && noteContentInput) {
@@ -130,20 +195,37 @@
                 noteContentInput.addEventListener('input', triggerAutoSave);
             }
 
-            // --- 3. KHUNG LOGIC REALTIME WEBSOCKET ---
-            let currentNoteId = null;
-            window.joinNoteChannel = function (noteId) {
-                currentNoteId = noteId;
-                console.log(`Đã tham gia phòng chỉnh sửa Realtime cho Note: ${noteId}`);
+            // --- 5. LOGIC WEBSOCKET (ĐỒNG BỘ TỪ TRANG CHỦ) ---
+            let socket = null;
+            function joinNoteRealtimeChannel(noteId) {
+                socket = new WebSocket('ws://localhost:8080');
+                socket.onopen = () => console.log(`🟢 Đã kết nối WebSocket cho Note chung: ${noteId}`);
+
+                socket.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        if (data.note_id === noteId && document.activeElement !== noteContentInput && document.activeElement !== noteTitleInput) {
+                            if (data.title !== undefined) noteTitleInput.value = data.title;
+                            if (data.content !== undefined) noteContentInput.value = data.content;
+
+                            saveStatusIndicator.innerHTML = '<i class="bi bi-person-check-fill text-info"></i> Updated by owner/teammate';
+                            setTimeout(() => saveStatusIndicator.innerHTML = '<i class="bi bi-cloud-check text-success"></i> Synced', 1500);
+                        }
+                    } catch (e) { console.error(e); }
+                };
             }
 
-            window.broadcastTyping = function () {
-                if (currentNoteId) {
-                    console.log(`Đang gửi dữ liệu Realtime... Title: ${noteTitleInput.value}`);
+            function broadcastTypingStatus() {
+                if (socket && socket.readyState === 1 && currentEditingNoteId) {
+                    socket.send(JSON.stringify({
+                        note_id: currentEditingNoteId,
+                        title: noteTitleInput.value,
+                        content: noteContentInput.value
+                    }));
                 }
             }
 
-            // --- 4. LIVE SEARCH BẰNG DOM FILTERING (TIÊU CHÍ 17) ---
+            // --- 6. LIVE SEARCH (LỌC TRỰC TIẾP TRÊN DOM) ---
             const searchBox = document.getElementById('search-box');
             let searchTimeoutShared;
 
@@ -152,39 +234,36 @@
                     clearTimeout(searchTimeoutShared);
                     const keyword = this.value.trim().toLowerCase();
 
-                    // Delay 300ms theo yêu cầu đề bài
+                    // Delay 300ms theo tiêu chí 17
                     searchTimeoutShared = setTimeout(() => {
                         const noteWrappers = document.querySelectorAll('.note-wrapper');
                         let hasResult = false;
 
                         noteWrappers.forEach(wrapper => {
-                            // Quét text trong cả Title và Content
                             const title = wrapper.querySelector('.card-title').innerText.toLowerCase();
                             const content = wrapper.querySelector('.card-text').innerText.toLowerCase();
 
                             if (title.includes(keyword) || content.includes(keyword)) {
-                                wrapper.style.display = 'block'; // Hiển thị nếu khớp
+                                wrapper.style.display = 'block';
                                 hasResult = true;
                             } else {
-                                wrapper.style.display = 'none'; // Ẩn đi nếu không khớp
+                                wrapper.style.display = 'none';
                             }
                         });
 
-                        // Xử lý thông báo "Không tìm thấy"
                         let noResultMsg = document.getElementById('no-result-msg');
                         if (!hasResult) {
                             if (!noResultMsg) {
                                 noResultMsg = document.createElement('div');
                                 noResultMsg.id = 'no-result-msg';
                                 noResultMsg.className = 'col-12 text-center text-muted py-5';
-                                noResultMsg.innerHTML = '<i class="bi bi-search" style="font-size: 3rem;"></i><p class="mt-3">No shared notes found!</p>';
-                                document.getElementById('shared-notes-container').appendChild(noResultMsg);
+                                noResultMsg.innerHTML = '<i class="bi bi-search" style="font-size: 3rem;"></i><p class="mt-3">No shared notes match your search!</p>';
+                                container.appendChild(noResultMsg);
                             }
                             noResultMsg.style.display = 'block';
                         } else if (noResultMsg) {
                             noResultMsg.style.display = 'none';
                         }
-
                     }, 300);
                 });
             }
