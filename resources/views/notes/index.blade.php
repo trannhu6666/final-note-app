@@ -65,6 +65,12 @@
         </div>
 
         <div class="col-md-9">
+            <div class="alert alert-danger mb-3 d-none shadow-sm animate__animated animate__fadeIn" id="offlineStatusAlert"
+                role="alert">
+                <i class="bi bi-wifi-off me-2"></i> <strong>Đang làm việc ngoại tuyến!</strong> Mọi thay đổi của bạn sẽ được
+                lưu tạm tại thiết bị này.
+            </div>
+
             <div class="alert alert-warning alert-dismissible fade show d-none mb-3" id="unverifiedHomepageAlert"
                 role="alert">
                 <i class="bi bi-exclamation-triangle-fill text-danger"></i>
@@ -198,7 +204,36 @@
         </div>
 
         <script>
-            // Cấu hình Header dùng chung đính kèm Token xác thực cho mọi Request
+            // Đăng ký Service Worker lưu UI Shell (Tiêu chí 27)
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('/sw.js')
+                        .then(reg => console.log('✓ Service Worker registered!'))
+                        .catch(err => console.error('Service Worker connection failed:', err));
+                });
+            }
+
+            // --- KHỞI TẠO CƠ SỞ DỮ LIỆU LOCAL INDEXEDDB (Tiêu chí 27) ---
+            let db = null;
+            const request = indexedDB.open("MyNotesOfflineDB", 1);
+
+            request.onupgradeneeded = function (e) {
+                let localDb = e.target.result;
+                // Store chứa bản sao dữ liệu cache từ server về nhằm hiển thị tức thời
+                if (!localDb.objectStoreNames.contains("cached_notes")) {
+                    localDb.createObjectStore("cached_notes", { keyPath: "id" });
+                }
+                // Store chứa các thao tác thêm mới/sửa note chưa kịp sync lên cloud lúc offline
+                if (!localDb.objectStoreNames.contains("pending_sync")) {
+                    localDb.createObjectStore("pending_sync", { keyPath: "local_id", autoIncrement: true });
+                }
+            };
+
+            request.onsuccess = function (e) {
+                db = e.target.result;
+                console.log("✓ IndexedDB initialized successfully!");
+            };
+
             function getAuthHeaders(isFormData = false) {
                 const token = localStorage.getItem('user_token');
                 const headers = {};
@@ -207,7 +242,6 @@
                 return headers;
             }
 
-            // Các biến trạng thái toàn cục
             let currentEditingNoteId = null;
             let isNotePinned = false;
             let noteElementToDelete = null;
@@ -218,8 +252,26 @@
                 const searchBox = document.getElementById('search-box');
                 let searchTimeout;
 
-                // --- 1. API LẤY DANH SÁCH NOTE (GET /api/notes) ---
+                // --- 1. API LẤY DANH SÁCH NOTE (CÓ TÍCH HỢP FALLBACK INDEXEDDB) ---
                 function fetchAndRenderNotes(searchKeyword = '', labelId = '') {
+                    // Nếu thiết bị mất mạng, lấy thẳng dữ liệu cache trong IndexedDB ra vẽ UI
+                    if (!navigator.onLine) {
+                        document.getElementById('offlineStatusAlert')?.classList.remove('d-none');
+                        readAllFromIndexedDB("cached_notes", function (offlineNotes) {
+                            // Lọc dữ liệu thô ngay tại client nếu user gõ search lúc không có mạng
+                            let filtered = offlineNotes;
+                            if (searchKeyword) {
+                                filtered = filtered.filter(n =>
+                                    (n.title && n.title.toLowerCase().includes(searchKeyword.toLowerCase())) ||
+                                    (n.content && n.content.toLowerCase().includes(searchKeyword.toLowerCase()))
+                                );
+                            }
+                            renderNotes(filtered);
+                        });
+                        return;
+                    }
+
+                    // Nếu có mạng (Online), fetch API Laravel bình thường
                     let url = '/api/notes';
                     const params = new URLSearchParams();
                     if (searchKeyword) params.append('search', searchKeyword);
@@ -239,6 +291,12 @@
                                 const notesArray = response.data || [];
                                 renderNotes(notesArray);
 
+                                // Đồng bộ đè mảng dữ liệu mới nhất từ Cloud vào IndexedDB để làm bộ nhớ đệm offline
+                                if (!searchKeyword && !labelId) {
+                                    clearObjectStore("cached_notes");
+                                    notesArray.forEach(note => saveToIndexedDB("cached_notes", note));
+                                }
+
                                 const alertBox = document.getElementById('unverifiedHomepageAlert');
                                 if (alertBox && response.user && response.user.is_active === false) {
                                     alertBox.classList.remove('d-none');
@@ -249,11 +307,8 @@
                         })
                         .catch(err => {
                             console.error("Lỗi khi tải danh sách notes:", err);
-                            if (notesContainer) {
-                                notesContainer.innerHTML = `<div class="col-12 text-center text-danger py-5 border border-danger rounded bg-light mt-3">
-                                        <h5><i class="bi bi-bug"></i> Backend API Error</h5><p>${err.message}</p>
-                                    </div>`;
-                            }
+                            // Nếu lỗi do mạng, lôi bộ nhớ IndexedDB ra cứu nguy
+                            readAllFromIndexedDB("cached_notes", renderNotes);
                         });
                 }
 
@@ -286,21 +341,20 @@
                         const col = document.createElement('div');
                         col.className = 'col-12 note-wrapper';
                         col.innerHTML = `
-                                <div class="card h-100 shadow-sm note-card" style="cursor: pointer;" data-id="${note.id}">
-                                    <div class="card-body">
-                                        <h5 class="card-title fw-bold d-flex justify-content-between align-items-start">
-                                            ${note.title || 'Untitled'}<div>${iconsHtml}</div>
-                                        </h5>
-                                        <p class="card-text">${displayContent}</p>
-                                        <div class="note-labels-area">${labelsHtml}</div>
-                                    </div>
-                                    <div class="card-footer bg-transparent border-top-0 text-muted small d-flex justify-content-between align-items-center">
-                                        <span><i class="bi bi-clock"></i> ${new Date(note.updated_at).toLocaleString()}</span>
-                                        <button class="btn btn-sm btn-light btn-delete" data-id="${note.id}"><i class="bi bi-trash text-danger"></i></button>
-                                    </div>
-                                </div>`;
+                                                            <div class="card h-100 shadow-sm note-card" style="cursor: pointer;" data-id="${note.id}">
+                                                                <div class="card-body">
+                                                                    <h5 class="card-title fw-bold d-flex justify-content-between align-items-start">
+                                                                        ${note.title || 'Untitled'}<div>${iconsHtml}</div>
+                                                                    </h5>
+                                                                    <p class="card-text">${displayContent}</p>
+                                                                    <div class="note-labels-area">${labelsHtml}</div>
+                                                                </div>
+                                                                <div class="card-footer bg-transparent border-top-0 text-muted small d-flex justify-content-between align-items-center">
+                                                                    <span><i class="bi bi-clock"></i> ${note.updated_at ? new Date(note.updated_at).toLocaleString() : 'Vừa xong'}</span>
+                                                                    <button class="btn btn-sm btn-light btn-delete" data-id="${note.id}"><i class="bi bi-trash text-danger"></i></button>
+                                                                </div>
+                                                            </div>`;
 
-                        // Sự kiện click để xem/sửa Note (Xử lý Mở Khóa - Tiêu chí 21-23)
                         col.querySelector('.note-card').addEventListener('click', function (e) {
                             if (e.target.closest('.btn-delete')) return;
 
@@ -330,7 +384,7 @@
                     isNotePinned = !!note.is_pinned;
                     updatePinButtonUI();
 
-                    if (note.permission === 'edit' || !note.is_shared) {
+                    if ((note.permission === 'edit' || !note.is_shared) && navigator.onLine) {
                         joinNoteRealtimeChannel(note.id);
                     }
                     new bootstrap.Modal(document.getElementById('editorModal')).show();
@@ -374,7 +428,7 @@
                 document.getElementById('gridView')?.addEventListener('change', () => notesContainer.classList.replace('list-mode', 'grid-mode'));
                 document.getElementById('listView')?.addEventListener('change', () => notesContainer.classList.replace('grid-mode', 'list-mode'));
 
-                // --- 7. AUTO-SAVE LOGIC THỰC TẾ ---
+                // --- 7. AUTO-SAVE LOGIC THỰC TẾ (HỖ TRỢ LƯU TẠM OFFLINE KHI MẤT MẠNG) ---
                 const noteTitleInput = document.getElementById('noteTitle');
                 const noteContentInput = document.getElementById('noteContent');
                 const saveStatusIndicator = document.getElementById('saveStatusIndicator');
@@ -394,32 +448,71 @@
 
                 function saveNoteDataToServer() {
                     const payload = {
-                        title: noteTitleInput.value,
-                        content: noteContentInput.value,
-                        is_pinned: isNotePinned ? 1 : 0
+                        title: document.getElementById('noteTitle') ? document.getElementById('noteTitle').value : '',
+                        content: document.getElementById('noteContent') ? document.getElementById('noteContent').value : '',
+                        is_pinned: typeof isNotePinned !== 'undefined' && isNotePinned ? 1 : 0
                     };
+
+                    const indicator = document.getElementById('saveStatusIndicator');
+                    if (indicator) indicator.innerHTML = '<span class="spinner-border spinner-border-sm text-primary"></span> Saving...';
+
+                    // 1. MẤT MẠNG THẬT SỰ (Rút dây mạng / Tắt Wifi)
+                    if (!navigator.onLine) {
+                        if (typeof db !== 'undefined' && db) {
+                            const offlinePayload = { id: currentEditingNoteId, ...payload, updated_at: new Date().toISOString() };
+                            saveToIndexedDB("pending_sync", offlinePayload);
+                            if (indicator) indicator.innerHTML = '<i class="bi bi-hdd text-warning"></i> Saved locally (Offline)';
+                        }
+                        return;
+                    }
+
+                    // 2. CÓ MẠNG -> GỌI API LÊN CLOUD
                     let url = currentEditingNoteId ? `/api/notes/${currentEditingNoteId}` : '/api/notes';
                     let method = currentEditingNoteId ? 'PUT' : 'POST';
 
                     fetch(url, { method: method, headers: getAuthHeaders(), body: JSON.stringify(payload) })
-                        .then(res => res.json())
+                        .then(res => {
+                            const contentType = res.headers.get("content-type");
+                            // Kiểm tra xem Backend có trả về JSON đàng hoàng không, hay lại văng ra trang HTML báo lỗi của Laravel
+                            if (!contentType || !contentType.includes("application/json")) {
+                                throw new Error("Backend sập (Lỗi 500) hoặc API sai đường dẫn!");
+                            }
+                            return res.json();
+                        })
                         .then(response => {
                             if (response.status === 'success') {
-                                if (!currentEditingNoteId && response.data.id) currentEditingNoteId = response.data.id;
-                                saveStatusIndicator.innerHTML = '<i class="bi bi-cloud-check text-success"></i> Saved to Cloud';
+                                if (!currentEditingNoteId && response.data && response.data.id) {
+                                    currentEditingNoteId = response.data.id;
+                                }
+                                if (indicator) indicator.innerHTML = '<i class="bi bi-cloud-check text-success"></i> Saved to Cloud';
                                 fetchAndRenderNotes();
+                            } else {
+                                // API chạy được nhưng báo lỗi logic (Ví dụ: Chưa đăng nhập, thiếu dữ liệu)
+                                console.error("Lỗi từ API Backend:", response);
+                                if (indicator) indicator.innerHTML = '<i class="bi bi-exclamation-triangle text-danger"></i> ' + (response.message || 'Lỗi lưu Note');
                             }
-                        }).catch(err => {
-                            saveStatusIndicator.innerHTML = '<i class="bi bi-x-circle text-danger"></i> Save failed';
+                        })
+                        .catch(err => {
+                            // 3. CÓ MẠNG NHƯNG SERVER API BỊ SẬP
+                            console.error("Save failed do lỗi Server:", err);
+                            if (typeof db !== 'undefined' && db) {
+                                saveToIndexedDB("pending_sync", { id: currentEditingNoteId, ...payload, updated_at: new Date().toISOString() });
+                                if (indicator) indicator.innerHTML = '<i class="bi bi-hdd text-danger"></i> Saved locally (Backend API Error)';
+                            } else {
+                                if (indicator) indicator.innerHTML = '<i class="bi bi-x-circle text-danger"></i> Save failed';
+                            }
                         });
                 }
 
-                noteTitleInput?.addEventListener('input', triggerAutoSave);
-                noteContentInput?.addEventListener('input', triggerAutoSave);
+                if (noteTitleInput && noteContentInput) {
+                    noteTitleInput.addEventListener('input', triggerAutoSave);
+                    noteContentInput.addEventListener('input', triggerAutoSave);
+                }
 
                 // --- 8. REALTIME COLLABORATION VỚI WEBSOCKETS ---
                 let socket = null;
                 function joinNoteRealtimeChannel(noteId) {
+                    if (!navigator.onLine) return;
                     socket = new WebSocket('ws://localhost:8080');
                     socket.onopen = () => console.log(`🟢 WebSocket connected for Note: ${noteId}`);
                     socket.onmessage = (event) => {
@@ -435,7 +528,7 @@
                     };
                 }
                 function broadcastTypingStatus() {
-                    if (socket && socket.readyState === 1 && currentEditingNoteId) {
+                    if (socket && socket.readyState === 1 && currentEditingNoteId && navigator.onLine) {
                         socket.send(JSON.stringify({ note_id: currentEditingNoteId, title: noteTitleInput.value, content: noteContentInput.value }));
                     }
                 }
@@ -452,19 +545,50 @@
                     if (saveStatusIndicator) saveStatusIndicator.innerHTML = '<i class="bi bi-cloud"></i> New Note Ready';
                 });
 
-                // ==============================================================
-                // CÁC ĐOẠN CODE API TÍCH HỢP MỚI THÊM (LABELS, PASSWORD, SHARE)
-                // ==============================================================
+                // --- BẮT SỰ KIỆN KHÔI PHỤC KẾT NỐI MẠNG ĐỂ ĐỒNG BỘ (SYNC LOGIC) ---
+                window.addEventListener('online', function () {
+                    document.getElementById('offlineStatusAlert')?.addClass('d-none');
+                    console.log("🌐 Thiết bị đã kết nối mạng trở lại! Đang đồng bộ dữ liệu...");
 
-                // --- API 7: QUẢN LÝ NHÃN (LABELS) ---
+                    readAllFromIndexedDB("pending_sync", function (pendingNotes) {
+                        if (pendingNotes.length === 0) return;
+
+                        pendingNotes.forEach(note => {
+                            let url = note.id ? `/api/notes/${note.id}` : '/api/notes';
+                            let method = note.id ? 'PUT' : 'POST';
+
+                            fetch(url, {
+                                method: method,
+                                headers: getAuthHeaders(),
+                                body: JSON.stringify({ title: note.title, content: note.content, is_pinned: note.is_pinned })
+                            })
+                                .then(res => res.json())
+                                .then(response => {
+                                    if (response.status === 'success') {
+                                        console.log(`✓ Đã đồng bộ note [${note.title}] lên Cloud thành công!`);
+                                        // Đồng bộ xong cái nào, xóa khỏi hàng đợi IndexedDB cái đó
+                                        deleteFromIndexedDB("pending_sync", note.local_id);
+                                    }
+                                });
+                        });
+                        setTimeout(() => fetchAndRenderNotes(), 2000);
+                    });
+                });
+
+                window.addEventListener('offline', function () {
+                    document.getElementById('offlineStatusAlert')?.classList.remove('d-none');
+                });
+
+
+                // --- CÁC ĐOẠN CODE API TÍCH HỢP CHO LABELS, PASSWORD, SHARE ---
                 function fetchLabels() {
+                    if (!navigator.onLine) return; // Các tính năng quản lý nhãn sâu chỉ chạy online
                     fetch('/api/labels', { method: 'GET', headers: getAuthHeaders() })
                         .then(res => res.json())
                         .then(response => {
                             if (response.status === 'success') {
                                 const labels = response.data || [];
 
-                                // 1. Render Menu Sidebar
                                 const sidebar = document.getElementById('labelFilterMenu');
                                 if (sidebar) {
                                     sidebar.innerHTML = `<a href="#" class="list-group-item list-group-item-action active border-0 label-filter-item" onclick="filterByLabel('')"><i class="bi bi-collection"></i> All Notes</a>`;
@@ -473,19 +597,17 @@
                                     });
                                 }
 
-                                // 2. Render Modal Xóa Label
                                 const manager = document.getElementById('labelListContainer');
                                 if (manager) {
                                     manager.innerHTML = '';
                                     labels.forEach(lbl => {
                                         manager.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                                            <input type="text" class="form-control border-0 shadow-none bg-transparent" value="${lbl.name}" readonly>
-                                            <button type="button" class="btn btn-sm btn-outline-danger border-0 btn-delete-label" onclick="window.deleteLabel(${lbl.id})"><i class="bi bi-trash"></i></button>
-                                        </li>`;
+                                                                        <input type="text" class="form-control border-0 shadow-none bg-transparent" value="${lbl.name}" readonly>
+                                                                        <button type="button" class="btn btn-sm btn-outline-danger border-0 btn-delete-label" onclick="window.deleteLabel(${lbl.id})"><i class="bi bi-trash"></i></button>
+                                                                    </li>`;
                                     });
                                 }
 
-                                // 3. Render Dropdown gán Label trong Modal Editor
                                 const dropdown = document.getElementById('labelDropdownList');
                                 if (dropdown) {
                                     dropdown.innerHTML = `<li><h6 class="dropdown-header">Assign Label</h6></li>`;
@@ -497,7 +619,6 @@
                         });
                 }
 
-                // Gắn hàm xóa label ra biến toàn cục window để gọi được từ thẻ HTML trực tiếp
                 window.deleteLabel = function (labelId) {
                     fetch(`/api/labels/${labelId}`, { method: 'DELETE', headers: getAuthHeaders() })
                         .then(res => res.json())
@@ -505,7 +626,7 @@
                 };
 
                 window.filterByLabel = function (labelId) {
-                    fetchAndRenderNotes('', labelId); // Lọc notes theo nhãn
+                    fetchAndRenderNotes('', labelId);
                 };
 
                 document.getElementById('btnAddLabel')?.addEventListener('click', function () {
@@ -521,7 +642,7 @@
                         });
                 });
 
-                fetchLabels(); // Tải danh sách nhãn lần đầu
+                fetchLabels();
 
                 // --- API 8 & 9: BẢO MẬT MẬT KHẨU NOTE ---
                 document.getElementById('btnSavePassword')?.addEventListener('click', function () {
@@ -551,7 +672,7 @@
                     }).then(res => res.json()).then(response => {
                         if (response.status === 'success') {
                             noteObj.content = response.data.content;
-                            noteObj.is_locked = false; // Tạm tắt cờ lock trên client để cho phép mở Editor
+                            noteObj.is_locked = false;
                             openNoteEditor(noteObj);
                         } else alert("Mật khẩu không chính xác!");
                     });
@@ -572,7 +693,35 @@
                         else alert(response.message || 'Chia sẻ thất bại.');
                     });
                 });
-
             });
+
+            // ==============================================================
+            // CÁC HÀM BỔ TRỢ ĐỌC/GHI ĐỘC LẬP VÀO INDEXEDDB (Tiêu chí 27)
+            // ==============================================================
+            function saveToIndexedDB(storeName, data) {
+                if (!db) return;
+                const tx = db.transaction(storeName, "readwrite");
+                tx.objectStore(storeName).put(data);
+            }
+
+            function readAllFromIndexedDB(storeName, callback) {
+                if (!db) return callback([]);
+                const tx = db.transaction(storeName, "readonly");
+                const store = tx.objectStore(storeName);
+                const req = store.getAll();
+                req.onsuccess = function () { callback(req.result || []); };
+            }
+
+            function clearObjectStore(storeName) {
+                if (!db) return;
+                const tx = db.transaction(storeName, "readwrite");
+                tx.objectStore(storeName).clear();
+            }
+
+            function deleteFromIndexedDB(storeName, key) {
+                if (!db) return;
+                const tx = db.transaction(storeName, "readwrite");
+                tx.objectStore(storeName).delete(key);
+            }
         </script>
 @endsection

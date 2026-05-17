@@ -10,7 +10,7 @@
             <div class="card shadow border-0 mb-4">
                 <div class="card-body p-4">
                     <h5 class="card-title border-bottom pb-2 mb-4 text-primary fw-bold">Profile Information</h5>
-                    <form>
+                    <form id="profileForm">
                         <div class="d-flex align-items-center mb-4">
                             <div class="bg-primary text-white rounded-circle d-flex justify-content-center align-items-center me-4 shadow-sm"
                                 style="width: 80px; height: 80px; font-size: 2.5rem;">
@@ -18,14 +18,15 @@
                             </div>
                             <div class="flex-grow-1">
                                 <label class="form-label fw-semibold">Change Avatar</label>
-                                <input type="file" class="form-control">
+                                <input type="file" id="avatarInput" class="form-control" accept="image/*">
                             </div>
                         </div>
                         <div class="mb-4">
                             <label class="form-label fw-semibold">Display Name</label>
-                            <input type="text" class="form-control form-control-lg" value="Student Name">
+                            <input type="text" id="displayNameInput" class="form-control form-control-lg"
+                                placeholder="Student Name" required>
                         </div>
-                        <button type="submit" class="btn btn-primary btn-lg px-4 fw-bold shadow-sm">
+                        <button type="submit" class="btn btn-primary btn-lg px-4 fw-bold shadow-sm" id="btnSaveProfile">
                             <i class="bi bi-floppy me-2"></i> Save Profile
                         </button>
                     </form>
@@ -35,22 +36,22 @@
             <div class="card shadow border-0">
                 <div class="card-body p-4">
                     <h5 class="card-title border-bottom pb-2 mb-4 text-primary fw-bold">Change Password</h5>
-                    <form>
+                    <form id="passwordForm">
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Current Password</label>
-                            <input type="password" class="form-control" required>
+                            <input type="password" id="currentPassword" class="form-control" required>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-4">
                                 <label class="form-label fw-semibold">New Password</label>
-                                <input type="password" class="form-control" required>
+                                <input type="password" id="newPassword" class="form-control" required>
                             </div>
                             <div class="col-md-6 mb-4">
                                 <label class="form-label fw-semibold">Confirm New Password</label>
-                                <input type="password" class="form-control" required>
+                                <input type="password" id="confirmNewPassword" class="form-control" required>
                             </div>
                         </div>
-                        <button type="submit" class="btn btn-outline-primary btn-lg px-4 fw-bold">
+                        <button type="submit" class="btn btn-outline-primary btn-lg px-4 fw-bold" id="btnUpdatePassword">
                             <i class="bi bi-shield-lock me-2"></i> Update Password
                         </button>
                     </form>
@@ -59,4 +60,100 @@
 
         </div>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Hàm lấy Token
+            function getAuthHeaders(isFormData = false) {
+                const token = localStorage.getItem('user_token');
+                const headers = {};
+                if (!isFormData) headers['Content-Type'] = 'application/json';
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+                return headers;
+            }
+
+            // 1. Tải tên người dùng hiện tại lên ô nhập liệu
+            const savedName = localStorage.getItem('user_name');
+            if (savedName) {
+                document.getElementById('displayNameInput').value = savedName;
+            }
+
+            // 2. GỌI API CẬP NHẬT PROFILE (Tên + Avatar)
+            document.getElementById('profileForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                const btn = document.getElementById('btnSaveProfile');
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Saving...';
+                btn.disabled = true;
+
+                const formData = new FormData();
+                formData.append('display_name', document.getElementById('displayNameInput').value);
+
+                const avatarFile = document.getElementById('avatarInput').files[0];
+                if (avatarFile) formData.append('avatar', avatarFile);
+
+                // Giả định Dev B làm API POST /api/user/profile
+                fetch('/api/user/profile', {
+                    method: 'POST',
+                    headers: getAuthHeaders(true), // true vì đang gửi FormData chứa ảnh
+                    body: formData
+                })
+                    .then(res => res.json())
+                    .then(response => {
+                        if (response.status === 'success') {
+                            alert('Cập nhật thông tin thành công!');
+                            localStorage.setItem('user_name', document.getElementById('displayNameInput').value); // Cập nhật lại tên dưới máy
+                        } else {
+                            alert(response.message || 'Lỗi cập nhật!');
+                        }
+                    })
+                    .catch(err => console.error(err))
+                    .finally(() => {
+                        btn.innerHTML = '<i class="bi bi-floppy me-2"></i> Save Profile';
+                        btn.disabled = false;
+                    });
+            });
+
+            // 3. GỌI API ĐỔI MẬT KHẨU
+            document.getElementById('passwordForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                const currentPass = document.getElementById('currentPassword').value;
+                const newPass = document.getElementById('newPassword').value;
+                const confirmPass = document.getElementById('confirmNewPassword').value;
+
+                if (newPass !== confirmPass) {
+                    return alert("Mật khẩu mới không khớp!");
+                }
+
+                const btn = document.getElementById('btnUpdatePassword');
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Updating...';
+                btn.disabled = true;
+
+                // Gọi API Đổi mật khẩu do Dev B cung cấp (Tiêu chí 1-8)
+                fetch('/api/user/password', {
+                    method: 'PUT',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        current_password: currentPass,
+                        new_password: newPass,
+                        new_password_confirmation: confirmPass
+                    })
+                })
+                    .then(res => res.json())
+                    .then(response => {
+                        if (response.status === 'success') {
+                            alert('Đổi mật khẩu thành công!');
+                            document.getElementById('passwordForm').reset(); // Xóa trắng form
+                        } else {
+                            alert(response.message || 'Mật khẩu cũ không đúng hoặc có lỗi xảy ra.');
+                        }
+                    })
+                    .catch(err => console.error(err))
+                    .finally(() => {
+                        btn.innerHTML = '<i class="bi bi-shield-lock me-2"></i> Update Password';
+                        btn.disabled = false;
+                    });
+            });
+        });
+    </script>
 @endsection
