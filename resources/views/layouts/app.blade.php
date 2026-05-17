@@ -231,18 +231,6 @@
             });
         }
 
-        // 4. Live Search logic
-        let searchTimeout;
-        const searchBox = document.getElementById('search-box');
-        if (searchBox) {
-            searchBox.addEventListener('input', function () {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => {
-                    console.log('Fetching search API for:', this.value);
-                }, 300);
-            });
-        }
-
         // 5. Offline UI logic
         window.addEventListener('online', updateNetworkStatus);
         window.addEventListener('offline', updateNetworkStatus);
