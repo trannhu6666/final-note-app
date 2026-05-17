@@ -252,15 +252,6 @@
             });
         }
 
-        // Khởi tạo IndexedDB để lưu Note khi Offline
-        let db;
-        const dbName = "MyNotesDB";
-        const request = indexedDB.open(dbName, 1);
-
-        request.onerror = (event) => {
-            console.error("IndexedDB error: ", event.target.errorCode);
-        };
-
         request.onupgradeneeded = (event) => {
             db = event.target.result;
             // Tạo bảng (Object Store) tên là 'offline_notes'

@@ -9,7 +9,7 @@ class LabelController extends Controller
 {
     public function index(Request $request)
     {
-        $labels = $request->user()->labels;
+        $labels = $request->user()->labels()->orderBy('name', 'asc')->get();
         return response()->json(['status' => 'success', 'data' => $labels]);
     }
 

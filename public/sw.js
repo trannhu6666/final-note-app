@@ -38,7 +38,11 @@ self.addEventListener('activate', event => {
 
 // 3. Bắt các request (Fetch) - Tích hợp Dynamic Caching cho Vite
 self.addEventListener('fetch', event => {
+    if (!event.request.url.startsWith('http')) {
+        return;
+    }
     // Bỏ qua các request gọi API (để cho IndexedDB trong index.blade.php tự xử lý)
+
     if (event.request.url.includes('/api/')) {
         return;
     }

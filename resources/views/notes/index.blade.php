@@ -238,6 +238,7 @@
                 const token = localStorage.getItem('user_token');
                 const headers = {};
                 if (!isFormData) headers['Content-Type'] = 'application/json';
+                headers['Accept'] = 'application/json';
                 if (token) headers['Authorization'] = `Bearer ${token}`;
                 return headers;
             }
@@ -248,6 +249,10 @@
             let noteIdToDelete = null;
 
             document.addEventListener('DOMContentLoaded', function () {
+                if (!localStorage.getItem('user_token')) {
+                    window.location.href = '/login';
+                    return; // Dừng toàn bộ các hàm fetch phía dưới lại
+                }
                 const notesContainer = document.getElementById('notes-container');
                 const searchBox = document.getElementById('search-box');
                 let searchTimeout;
@@ -280,6 +285,12 @@
 
                     fetch(url, { method: 'GET', headers: getAuthHeaders() })
                         .then(async res => {
+                            if (res.status === 401) {
+                                localStorage.removeItem('user_token');
+                                localStorage.removeItem('user_name');
+                                window.location.href = '/login';
+                                return;
+                            }
                             const contentType = res.headers.get("content-type");
                             if (!contentType || !contentType.includes("application/json")) {
                                 throw new Error("Backend API đang bị lỗi 500 hoặc chưa hoàn thiện!");
@@ -341,19 +352,19 @@
                         const col = document.createElement('div');
                         col.className = 'col-12 note-wrapper';
                         col.innerHTML = `
-                                                            <div class="card h-100 shadow-sm note-card" style="cursor: pointer;" data-id="${note.id}">
-                                                                <div class="card-body">
-                                                                    <h5 class="card-title fw-bold d-flex justify-content-between align-items-start">
-                                                                        ${note.title || 'Untitled'}<div>${iconsHtml}</div>
-                                                                    </h5>
-                                                                    <p class="card-text">${displayContent}</p>
-                                                                    <div class="note-labels-area">${labelsHtml}</div>
-                                                                </div>
-                                                                <div class="card-footer bg-transparent border-top-0 text-muted small d-flex justify-content-between align-items-center">
-                                                                    <span><i class="bi bi-clock"></i> ${note.updated_at ? new Date(note.updated_at).toLocaleString() : 'Vừa xong'}</span>
-                                                                    <button class="btn btn-sm btn-light btn-delete" data-id="${note.id}"><i class="bi bi-trash text-danger"></i></button>
-                                                                </div>
-                                                            </div>`;
+                                                                        <div class="card h-100 shadow-sm note-card" style="cursor: pointer;" data-id="${note.id}">
+                                                                            <div class="card-body">
+                                                                                <h5 class="card-title fw-bold d-flex justify-content-between align-items-start">
+                                                                                    ${note.title || 'Untitled'}<div>${iconsHtml}</div>
+                                                                                </h5>
+                                                                                <p class="card-text">${displayContent}</p>
+                                                                                <div class="note-labels-area">${labelsHtml}</div>
+                                                                            </div>
+                                                                            <div class="card-footer bg-transparent border-top-0 text-muted small d-flex justify-content-between align-items-center">
+                                                                                <span><i class="bi bi-clock"></i> ${note.updated_at ? new Date(note.updated_at).toLocaleString() : 'Vừa xong'}</span>
+                                                                                <button class="btn btn-sm btn-light btn-delete" data-id="${note.id}"><i class="bi bi-trash text-danger"></i></button>
+                                                                            </div>
+                                                                        </div>`;
 
                         col.querySelector('.note-card').addEventListener('click', function (e) {
                             if (e.target.closest('.btn-delete')) return;
@@ -602,9 +613,9 @@
                                     manager.innerHTML = '';
                                     labels.forEach(lbl => {
                                         manager.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                                                                        <input type="text" class="form-control border-0 shadow-none bg-transparent" value="${lbl.name}" readonly>
-                                                                        <button type="button" class="btn btn-sm btn-outline-danger border-0 btn-delete-label" onclick="window.deleteLabel(${lbl.id})"><i class="bi bi-trash"></i></button>
-                                                                    </li>`;
+                                                                                    <input type="text" class="form-control border-0 shadow-none bg-transparent" value="${lbl.name}" readonly>
+                                                                                    <button type="button" class="btn btn-sm btn-outline-danger border-0 btn-delete-label" onclick="window.deleteLabel(${lbl.id})"><i class="bi bi-trash"></i></button>
+                                                                                </li>`;
                                     });
                                 }
 

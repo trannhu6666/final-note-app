@@ -68,6 +68,7 @@
                 const token = localStorage.getItem('user_token');
                 const headers = {};
                 if (!isFormData) headers['Content-Type'] = 'application/json';
+                headers['Accept'] = 'application/json';
                 if (token) headers['Authorization'] = `Bearer ${token}`;
                 return headers;
             }

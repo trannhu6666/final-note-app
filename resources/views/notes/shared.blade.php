@@ -42,6 +42,7 @@
             const token = localStorage.getItem('user_token');
             const headers = {};
             if (!isFormData) headers['Content-Type'] = 'application/json';
+            headers['Accept'] = 'application/json';
             if (token) headers['Authorization'] = `Bearer ${token}`;
             return headers;
         }
@@ -49,6 +50,10 @@
         let currentEditingNoteId = null;
 
         document.addEventListener('DOMContentLoaded', function () {
+            if (!localStorage.getItem('user_token')) {
+                window.location.href = '/login';
+                return; // Dừng toàn bộ các hàm fetch phía dưới lại
+            }
             const container = document.getElementById('shared-notes-container');
 
             // --- 1. GỌI API LẤY DANH SÁCH NOTE ĐƯỢC CHIA SẺ ---
@@ -74,8 +79,8 @@
                     .catch(err => {
                         console.error("Lỗi fetch shared notes:", err);
                         container.innerHTML = `<div class="col-12 text-center text-danger py-5 border border-danger rounded bg-light mt-3">
-                                        <h5><i class="bi bi-bug"></i> Backend API Error</h5><p>${err.message}</p>
-                                    </div>`;
+                                                <h5><i class="bi bi-bug"></i> Backend API Error</h5><p>${err.message}</p>
+                                            </div>`;
                     });
             }
 
@@ -101,26 +106,26 @@
                     const col = document.createElement('div');
                     col.className = 'col-md-4 note-wrapper';
                     col.innerHTML = `
-                                        <div class="card h-100 note-card ${borderClass}" style="${cursorStyle}">
-                                            <div class="card-body">
-                                                <h5 class="card-title fw-bold">${note.title || 'Untitled'}</h5>
-                                                <p class="card-text text-muted" style="display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">${contentSnippet}</p>
-                                            </div>
-                                            <div class="card-footer bg-transparent d-flex flex-column small border-top-0 pt-0">
-                                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                                    <span class="text-muted text-truncate" style="max-width: 60%;" title="${note.owner_email}">
-                                                        <i class="bi bi-person-circle text-primary me-1"></i> ${note.owner_email}
-                                                    </span>
-                                                    <span class="text-muted" style="font-size: 0.75rem;">
-                                                        <i class="bi bi-clock me-1"></i> ${new Date(note.shared_at).toLocaleDateString()}
-                                                    </span>
+                                                <div class="card h-100 note-card ${borderClass}" style="${cursorStyle}">
+                                                    <div class="card-body">
+                                                        <h5 class="card-title fw-bold">${note.title || 'Untitled'}</h5>
+                                                        <p class="card-text text-muted" style="display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">${contentSnippet}</p>
+                                                    </div>
+                                                    <div class="card-footer bg-transparent d-flex flex-column small border-top-0 pt-0">
+                                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                                            <span class="text-muted text-truncate" style="max-width: 60%;" title="${note.owner_email}">
+                                                                <i class="bi bi-person-circle text-primary me-1"></i> ${note.owner_email}
+                                                            </span>
+                                                            <span class="text-muted" style="font-size: 0.75rem;">
+                                                                <i class="bi bi-clock me-1"></i> ${new Date(note.shared_at).toLocaleDateString()}
+                                                            </span>
+                                                        </div>
+                                                        <span class="badge ${badgeClass} text-white w-auto align-self-start px-3 py-2 rounded-pill">
+                                                            <i class="bi ${badgeIcon} me-1"></i> ${badgeText}
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                                <span class="badge ${badgeClass} text-white w-auto align-self-start px-3 py-2 rounded-pill">
-                                                    <i class="bi ${badgeIcon} me-1"></i> ${badgeText}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    `;
+                                            `;
 
                     // Nếu có quyền Edit, cho phép click vào card để mở Editor Modal
                     if (isEdit) {
