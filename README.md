@@ -43,7 +43,7 @@ cp .env.example .env
 php artisan key:generate
 ```
 
-**Step 6:** Configure your Database connection in the `.env` file. Open XAMPP/MySQL and create a database named `mynotes_db`, then update the `.env` file:
+**Step 6:** Configure your Database connection in the `.env` file. Open XAMPP/MySQL and create a database named `final_note_app`, then update the `.env` file:
 ```env
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
