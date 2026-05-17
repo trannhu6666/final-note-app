@@ -36,4 +36,8 @@ class User extends Authenticatable
     {
         return $this->hasMany(Label::class);
     }
+    public function getAuthPassword()
+    {
+        return $this->password_hash;
+    }
 }

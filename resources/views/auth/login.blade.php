@@ -63,7 +63,7 @@
                                 localStorage.setItem('user_name', response.data.user.display_name);
 
                                 // Chuyển hướng người dùng sang giao diện danh sách ghi chú (Personalized Homepage)
-                                window.location.href = '/';
+                                window.location.href = '/notes';
                             } else {
                                 // Xử lý thông báo nếu tài khoản chưa kích hoạt hoặc sai thông tin
                                 if (response.message && response.message.includes('unverified')) {

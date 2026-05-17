@@ -12,7 +12,8 @@
                     <h5 class="card-title border-bottom pb-2 mb-4 text-primary fw-bold">Profile Information</h5>
                     <form id="profileForm">
                         <div class="d-flex align-items-center mb-4">
-                            <div class="bg-primary text-white rounded-circle d-flex justify-content-center align-items-center me-4 shadow-sm"
+                            <div id="avatarContainer"
+                                class="bg-primary text-white rounded-circle d-flex justify-content-center align-items-center me-4 shadow-sm overflow-hidden"
                                 style="width: 80px; height: 80px; font-size: 2.5rem;">
                                 <i class="bi bi-person"></i>
                             </div>
@@ -63,7 +64,6 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            // Hàm lấy Token
             function getAuthHeaders(isFormData = false) {
                 const token = localStorage.getItem('user_token');
                 const headers = {};
@@ -73,11 +73,24 @@
                 return headers;
             }
 
-            // 1. Tải tên người dùng hiện tại lên ô nhập liệu
-            const savedName = localStorage.getItem('user_name');
-            if (savedName) {
-                document.getElementById('displayNameInput').value = savedName;
+            // 🌟 1. TỰ ĐỘNG FETCH DỮ LIỆU THẬT TỪ DATABASE KHI VỪA VÀO TRANG PROFILE
+            function loadUserProfile() {
+                fetch('/api/user/profile', { method: 'GET', headers: getAuthHeaders() })
+                    .then(res => res.json())
+                    .then(response => {
+                        if (response.status === 'success' && response.data) {
+                            const user = response.data;
+                            document.getElementById('displayNameInput').value = user.name || '';
+                            localStorage.setItem('user_name', user.name || ''); // Cập nhật đồng bộ cache
+
+                            // Nếu user đã có ảnh đại diện -> Đổi avatar thành avatar_url
+                            if (user.avatar_url) {
+                                document.getElementById('avatarContainer').innerHTML = `<img src="${user.avatar_url}" style="width:100%; height:100%; object-fit:cover;">`;
+                            }
+                        }
+                    }).catch(err => console.error("Lỗi load profile:", err));
             }
+            loadUserProfile();
 
             // 2. GỌI API CẬP NHẬT PROFILE (Tên + Avatar)
             document.getElementById('profileForm').addEventListener('submit', function (e) {
@@ -92,17 +105,17 @@
                 const avatarFile = document.getElementById('avatarInput').files[0];
                 if (avatarFile) formData.append('avatar', avatarFile);
 
-                // Giả định Dev B làm API POST /api/user/profile
                 fetch('/api/user/profile', {
                     method: 'POST',
-                    headers: getAuthHeaders(true), // true vì đang gửi FormData chứa ảnh
+                    headers: getAuthHeaders(true),
                     body: formData
                 })
                     .then(res => res.json())
                     .then(response => {
                         if (response.status === 'success') {
                             alert('Cập nhật thông tin thành công!');
-                            localStorage.setItem('user_name', document.getElementById('displayNameInput').value); // Cập nhật lại tên dưới máy
+                            loadUserProfile(); // Tải lại để cập nhật ảnh đại diện mới ngay lập tức
+                            document.getElementById('avatarInput').value = ''; // Reset input file
                         } else {
                             alert(response.message || 'Lỗi cập nhật!');
                         }
@@ -130,21 +143,19 @@
                 btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Updating...';
                 btn.disabled = true;
 
-                // Gọi API Đổi mật khẩu do Dev B cung cấp (Tiêu chí 1-8)
                 fetch('/api/user/password', {
                     method: 'PUT',
                     headers: getAuthHeaders(),
                     body: JSON.stringify({
                         current_password: currentPass,
-                        new_password: newPass,
-                        new_password_confirmation: confirmPass
+                        new_password: newPass
                     })
                 })
                     .then(res => res.json())
                     .then(response => {
                         if (response.status === 'success') {
                             alert('Đổi mật khẩu thành công!');
-                            document.getElementById('passwordForm').reset(); // Xóa trắng form
+                            document.getElementById('passwordForm').reset();
                         } else {
                             alert(response.message || 'Mật khẩu cũ không đúng hoặc có lỗi xảy ra.');
                         }

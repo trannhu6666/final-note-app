@@ -47,6 +47,10 @@
             background-color: var(--bs-primary) !important;
             border-color: var(--bs-primary) !important;
         }
+
+        .border-bottom-dashed {
+            border-bottom: 1px dashed #dee2e6;
+        }
     </style>
 
     <div class="row">
@@ -113,7 +117,7 @@
                         <div id="image-preview-area" class="d-flex flex-wrap gap-2 mt-3 d-none"></div>
                     </div>
 
-                    <div class="modal-footer bg-light d-flex justify-content-between border-top-0">
+                    <div class="modal-footer bg-body-tertiary d-flex justify-content-between border-top-0">
                         <div class="d-flex gap-2 align-items-center">
                             <label class="btn btn-outline-secondary btn-sm mb-0" title="Add Images">
                                 <i class="bi bi-image"></i>
@@ -146,7 +150,7 @@
                             Saved</span>
                     </div>
 
-                    <div class="collapse bg-white border-top p-3" id="passwordSection">
+                    <div class="collapse bg-body border-top p-3" id="passwordSection">
                         <h6 class="text-danger"><i class="bi bi-shield-lock"></i> Note Password Protection</h6>
                         <div class="row g-2">
                             <div class="col-md-5">
@@ -161,6 +165,32 @@
                                 <button type="button" class="btn btn-danger btn-sm w-100" id="btnSavePassword">Khóa</button>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="shareManagerModal" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header bg-body-tertiary">
+                        <h5 class="modal-title fw-bold"><i class="bi bi-people-fill text-primary me-2"></i> Manage Sharing
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="input-group mb-4 shadow-sm">
+                            <input type="email" id="shareEmailInput" class="form-control"
+                                placeholder="Enter teammate's email...">
+                            <select id="sharePermissionSelect" class="form-select" style="max-width: 110px;">
+                                <option value="view">View</option>
+                                <option value="edit">Edit</option>
+                            </select>
+                            <button class="btn btn-primary fw-bold" id="btnSubmitShare">Share</button>
+                        </div>
+                        <h6 class="fw-bold text-muted mb-3 border-bottom pb-2">People with access:</h6>
+                        <ul class="list-group list-group-flush" id="sharedUsersList">
+                        </ul>
                     </div>
                 </div>
             </div>
@@ -204,7 +234,7 @@
         </div>
 
         <script>
-            // Đăng ký Service Worker lưu UI Shell (Tiêu chí 27)
+            // Đăng ký Service Worker lưu UI Shell
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
                     navigator.serviceWorker.register('/sw.js')
@@ -213,17 +243,15 @@
                 });
             }
 
-            // --- KHỞI TẠO CƠ SỞ DỮ LIỆU LOCAL INDEXEDDB (Tiêu chí 27) ---
+            // --- KHỞI TẠO CƠ SỞ DỮ LIỆU LOCAL INDEXEDDB ---
             let db = null;
-            const request = indexedDB.open("MyNotesOfflineDB", 1);
+            const request = indexedDB.open("MyNotesOfflineDB", 2);
 
             request.onupgradeneeded = function (e) {
                 let localDb = e.target.result;
-                // Store chứa bản sao dữ liệu cache từ server về nhằm hiển thị tức thời
                 if (!localDb.objectStoreNames.contains("cached_notes")) {
                     localDb.createObjectStore("cached_notes", { keyPath: "id" });
                 }
-                // Store chứa các thao tác thêm mới/sửa note chưa kịp sync lên cloud lúc offline
                 if (!localDb.objectStoreNames.contains("pending_sync")) {
                     localDb.createObjectStore("pending_sync", { keyPath: "local_id", autoIncrement: true });
                 }
@@ -232,6 +260,10 @@
             request.onsuccess = function (e) {
                 db = e.target.result;
                 console.log("✓ IndexedDB initialized successfully!");
+                // 🌟 GỌI ĐỒNG BỘ NẾU DOM ĐÃ TẢI XONG
+                if (typeof window.syncPendingNotes === 'function') {
+                    window.syncPendingNotes();
+                }
             };
 
             function getAuthHeaders(isFormData = false) {
@@ -251,19 +283,45 @@
             document.addEventListener('DOMContentLoaded', function () {
                 if (!localStorage.getItem('user_token')) {
                     window.location.href = '/login';
-                    return; // Dừng toàn bộ các hàm fetch phía dưới lại
+                    return;
                 }
                 const notesContainer = document.getElementById('notes-container');
                 const searchBox = document.getElementById('search-box');
+                const noteImageInput = document.getElementById('noteImageInput');
+                const imagePreviewArea = document.getElementById('image-preview-area');
                 let searchTimeout;
+
+                // --- HÀM XỬ LÝ XEM TRƯỚC HÌNH ẢNH KHI CHỌN FILE ---
+                noteImageInput?.addEventListener('change', function () {
+                    if (!imagePreviewArea) return;
+                    imagePreviewArea.innerHTML = '';
+
+                    if (this.files.length > 0) {
+                        imagePreviewArea.classList.remove('d-none');
+                        Array.from(this.files).forEach(file => {
+                            const reader = new FileReader();
+                            reader.onload = function (e) {
+                                const img = document.createElement('img');
+                                img.src = e.target.result;
+                                img.className = 'img-thumbnail';
+                                img.style.width = '75px';
+                                img.style.height = '75px';
+                                img.style.objectFit = 'cover';
+                                imagePreviewArea.appendChild(img);
+                            }
+                            reader.readAsDataURL(file);
+                        });
+                        triggerAutoSave();
+                    } else {
+                        imagePreviewArea.classList.add('d-none');
+                    }
+                });
 
                 // --- 1. API LẤY DANH SÁCH NOTE (CÓ TÍCH HỢP FALLBACK INDEXEDDB) ---
                 function fetchAndRenderNotes(searchKeyword = '', labelId = '') {
-                    // Nếu thiết bị mất mạng, lấy thẳng dữ liệu cache trong IndexedDB ra vẽ UI
                     if (!navigator.onLine) {
                         document.getElementById('offlineStatusAlert')?.classList.remove('d-none');
                         readAllFromIndexedDB("cached_notes", function (offlineNotes) {
-                            // Lọc dữ liệu thô ngay tại client nếu user gõ search lúc không có mạng
                             let filtered = offlineNotes;
                             if (searchKeyword) {
                                 filtered = filtered.filter(n =>
@@ -276,7 +334,6 @@
                         return;
                     }
 
-                    // Nếu có mạng (Online), fetch API Laravel bình thường
                     let url = '/api/notes';
                     const params = new URLSearchParams();
                     if (searchKeyword) params.append('search', searchKeyword);
@@ -302,7 +359,6 @@
                                 const notesArray = response.data || [];
                                 renderNotes(notesArray);
 
-                                // Đồng bộ đè mảng dữ liệu mới nhất từ Cloud vào IndexedDB để làm bộ nhớ đệm offline
                                 if (!searchKeyword && !labelId) {
                                     clearObjectStore("cached_notes");
                                     notesArray.forEach(note => saveToIndexedDB("cached_notes", note));
@@ -318,7 +374,6 @@
                         })
                         .catch(err => {
                             console.error("Lỗi khi tải danh sách notes:", err);
-                            // Nếu lỗi do mạng, lôi bộ nhớ IndexedDB ra cứu nguy
                             readAllFromIndexedDB("cached_notes", renderNotes);
                         });
                 }
@@ -338,7 +393,8 @@
                         let iconsHtml = '';
                         if (note.is_locked) iconsHtml += '<i class="bi bi-lock-fill text-danger me-1" title="Locked"></i>';
                         if (note.is_pinned) iconsHtml += '<i class="bi bi-pin-angle-fill text-warning me-1" title="Pinned"></i>';
-                        if (note.is_shared) iconsHtml += '<i class="bi bi-people-fill text-primary" title="Shared"></i>';
+                        if (note.is_shared) iconsHtml += '<i class="bi bi-people-fill text-primary me-1" title="Shared"></i>';
+                        if (note.images && note.images.length > 0) iconsHtml += '<i class="bi bi-image text-success" title="Contains Images"></i>';
 
                         let labelsHtml = '';
                         if (note.labels && note.labels.length > 0) {
@@ -347,24 +403,34 @@
                             });
                         }
 
+                        let imagesThumbnailHtml = '';
+                        if (note.images && note.images.length > 0) {
+                            imagesThumbnailHtml += '<div class="d-flex gap-1 mt-2 flex-wrap">';
+                            note.images.forEach(img => {
+                                imagesThumbnailHtml += `<img src="${img.image_url}" class="img-thumbnail" style="width: 40px; height: 40px; object-fit: cover;">`;
+                            });
+                            imagesThumbnailHtml += '</div>';
+                        }
+
                         let displayContent = note.is_locked ? '🔒 Content is password protected...' : (note.content || '');
 
                         const col = document.createElement('div');
                         col.className = 'col-12 note-wrapper';
                         col.innerHTML = `
-                                                                        <div class="card h-100 shadow-sm note-card" style="cursor: pointer;" data-id="${note.id}">
-                                                                            <div class="card-body">
-                                                                                <h5 class="card-title fw-bold d-flex justify-content-between align-items-start">
-                                                                                    ${note.title || 'Untitled'}<div>${iconsHtml}</div>
-                                                                                </h5>
-                                                                                <p class="card-text">${displayContent}</p>
-                                                                                <div class="note-labels-area">${labelsHtml}</div>
-                                                                            </div>
-                                                                            <div class="card-footer bg-transparent border-top-0 text-muted small d-flex justify-content-between align-items-center">
-                                                                                <span><i class="bi bi-clock"></i> ${note.updated_at ? new Date(note.updated_at).toLocaleString() : 'Vừa xong'}</span>
-                                                                                <button class="btn btn-sm btn-light btn-delete" data-id="${note.id}"><i class="bi bi-trash text-danger"></i></button>
-                                                                            </div>
-                                                                        </div>`;
+                                                        <div class="card h-100 shadow-sm note-card" style="cursor: pointer;" data-id="${note.id}">
+                                                            <div class="card-body">
+                                                                <h5 class="card-title fw-bold d-flex justify-content-between align-items-start">
+                                                                    ${note.title || 'Untitled'}<div>${iconsHtml}</div>
+                                                                </h5>
+                                                                <p class="card-text mb-1">${displayContent}</p>
+                                                                ${imagesThumbnailHtml}
+                                                                <div class="note-labels-area">${labelsHtml}</div>
+                                                            </div>
+                                                            <div class="card-footer bg-transparent border-top-0 text-muted small d-flex justify-content-between align-items-center">
+                                                                <span><i class="bi bi-clock"></i> ${note.updated_at ? new Date(note.updated_at).toLocaleString() : 'Vừa xong'}</span>
+                                                                <button class="btn btn-sm btn-light btn-delete" data-id="${note.id}"><i class="bi bi-trash text-danger"></i></button>
+                                                            </div>
+                                                        </div>`;
 
                         col.querySelector('.note-card').addEventListener('click', function (e) {
                             if (e.target.closest('.btn-delete')) return;
@@ -386,7 +452,38 @@
                         notesContainer.appendChild(col);
                     });
                 }
+                // HÀM HELPER: Vẽ danh sách ảnh đính kèm có tích hợp nút X xóa nhanh
+                function renderModalImages(images, isEditMode = true) {
+                    if (!imagePreviewArea) return;
+                    imagePreviewArea.innerHTML = '';
 
+                    if (images && images.length > 0) {
+                        imagePreviewArea.classList.remove('d-none');
+                        images.forEach(imgObj => {
+                            const wrapper = document.createElement('div');
+                            wrapper.className = 'position-relative d-inline-block me-2 mb-2';
+
+                            // Nếu có quyền Edit thì mới hiển thị nút X xóa ảnh
+                            let deleteBtnHtml = '';
+                            if (isEditMode) {
+                                deleteBtnHtml = `
+                                                            <button type="button" class="btn btn-danger p-0 d-flex align-items-center justify-content-center rounded-circle position-absolute top-0 end-0" 
+                                                                style="width: 20px; height: 20px; transform: translate(30%, -30%); font-size: 0.75rem; z-index: 10;" 
+                                                                onclick="window.deleteNoteImage(${imgObj.id}, this)">
+                                                                <i class="bi bi-x"></i>
+                                                            </button>`;
+                            }
+
+                            wrapper.innerHTML = `
+                                                        <img src="${imgObj.image_url}" class="img-thumbnail" style="width: 75px; height: 75px; object-fit: cover;">
+                                                        ${deleteBtnHtml}
+                                                    `;
+                            imagePreviewArea.appendChild(wrapper);
+                        });
+                    } else {
+                        imagePreviewArea.classList.add('d-none');
+                    }
+                }
                 // --- 3. ĐỔ CHI TIẾT NOTE VÀO MODAL KHI EDIT ---
                 function openNoteEditor(note) {
                     currentEditingNoteId = note.id;
@@ -394,6 +491,38 @@
                     document.getElementById('noteContent').value = note.content || '';
                     isNotePinned = !!note.is_pinned;
                     updatePinButtonUI();
+
+                    const hasEditPermission = (!note.is_shared || note.permission === 'edit');
+                    renderModalImages(note.images, hasEditPermission);
+                    if (noteImageInput) noteImageInput.value = '';
+
+                    if (imagePreviewArea) {
+                        imagePreviewArea.innerHTML = '';
+                        if (note.images && note.images.length > 0) {
+                            imagePreviewArea.classList.remove('d-none');
+                            note.images.forEach(imgObj => {
+                                const img = document.createElement('img');
+                                img.src = imgObj.image_url;
+                                img.className = 'img-thumbnail';
+                                img.style.width = '75px';
+                                img.style.height = '75px';
+                                img.style.objectFit = 'cover';
+                                imagePreviewArea.appendChild(img);
+                            });
+                        } else {
+                            imagePreviewArea.classList.add('d-none');
+                        }
+                    }
+
+                    if (noteImageInput) noteImageInput.value = '';
+
+                    document.querySelectorAll('#labelDropdownList input[type="checkbox"]').forEach(cb => cb.checked = false);
+                    if (note.labels && note.labels.length > 0) {
+                        note.labels.forEach(lbl => {
+                            const cb = document.getElementById('label_' + lbl.id);
+                            if (cb) cb.checked = true;
+                        });
+                    }
 
                     if ((note.permission === 'edit' || !note.is_shared) && navigator.onLine) {
                         joinNoteRealtimeChannel(note.id);
@@ -414,7 +543,7 @@
 
                 fetchAndRenderNotes();
 
-                // --- 4. LIVE SEARCH HOÀN CHỈNH (DELAY 300MS) ---
+                // --- 4. LIVE SEARCH HOÀN CHỈNH ---
                 if (searchBox) {
                     searchBox.addEventListener('input', function () {
                         clearTimeout(searchTimeout);
@@ -439,7 +568,7 @@
                 document.getElementById('gridView')?.addEventListener('change', () => notesContainer.classList.replace('list-mode', 'grid-mode'));
                 document.getElementById('listView')?.addEventListener('change', () => notesContainer.classList.replace('grid-mode', 'list-mode'));
 
-                // --- 7. AUTO-SAVE LOGIC THỰC TẾ (HỖ TRỢ LƯU TẠM OFFLINE KHI MẤT MẠNG) ---
+                // --- 7. AUTO-SAVE LOGIC HOÀN CHỈNH ---
                 const noteTitleInput = document.getElementById('noteTitle');
                 const noteContentInput = document.getElementById('noteContent');
                 const saveStatusIndicator = document.getElementById('saveStatusIndicator');
@@ -458,59 +587,83 @@
                 }
 
                 function saveNoteDataToServer() {
-                    const payload = {
-                        title: document.getElementById('noteTitle') ? document.getElementById('noteTitle').value : '',
-                        content: document.getElementById('noteContent') ? document.getElementById('noteContent').value : '',
-                        is_pinned: typeof isNotePinned !== 'undefined' && isNotePinned ? 1 : 0
-                    };
+                    const titleVal = document.getElementById('noteTitle') ? document.getElementById('noteTitle').value : '';
+                    const contentVal = document.getElementById('noteContent') ? document.getElementById('noteContent').value : '';
+                    const pinVal = typeof isNotePinned !== 'undefined' && isNotePinned ? 1 : 0;
 
                     const indicator = document.getElementById('saveStatusIndicator');
                     if (indicator) indicator.innerHTML = '<span class="spinner-border spinner-border-sm text-primary"></span> Saving...';
 
-                    // 1. MẤT MẠNG THẬT SỰ (Rút dây mạng / Tắt Wifi)
                     if (!navigator.onLine) {
                         if (typeof db !== 'undefined' && db) {
-                            const offlinePayload = { id: currentEditingNoteId, ...payload, updated_at: new Date().toISOString() };
+                            if (!currentEditingNoteId) {
+                                currentEditingNoteId = 'temp_' + Date.now();
+                            }
+                            const offlinePayload = {
+                                id: currentEditingNoteId,
+                                local_id: currentEditingNoteId,
+                                title: titleVal,
+                                content: contentVal,
+                                is_pinned: pinVal,
+                                updated_at: new Date().toISOString()
+                            };
                             saveToIndexedDB("pending_sync", offlinePayload);
                             if (indicator) indicator.innerHTML = '<i class="bi bi-hdd text-warning"></i> Saved locally (Offline)';
                         }
                         return;
                     }
 
-                    // 2. CÓ MẠNG -> GỌI API LÊN CLOUD
-                    let url = currentEditingNoteId ? `/api/notes/${currentEditingNoteId}` : '/api/notes';
-                    let method = currentEditingNoteId ? 'PUT' : 'POST';
+                    const formData = new FormData();
+                    formData.append('title', titleVal);
+                    formData.append('content', contentVal);
+                    formData.append('is_pinned', pinVal);
+                    formData.append('sync_labels', 1);
 
-                    fetch(url, { method: method, headers: getAuthHeaders(), body: JSON.stringify(payload) })
-                        .then(res => {
-                            const contentType = res.headers.get("content-type");
-                            // Kiểm tra xem Backend có trả về JSON đàng hoàng không, hay lại văng ra trang HTML báo lỗi của Laravel
-                            if (!contentType || !contentType.includes("application/json")) {
-                                throw new Error("Backend sập (Lỗi 500) hoặc API sai đường dẫn!");
-                            }
-                            return res.json();
-                        })
+                    const checkedLabels = document.querySelectorAll('#labelDropdownList input[type="checkbox"]:checked');
+                    checkedLabels.forEach(cb => formData.append('labels[]', cb.value));
+
+                    if (noteImageInput && noteImageInput.files.length > 0) {
+                        for (let i = 0; i < noteImageInput.files.length; i++) {
+                            formData.append('images[]', noteImageInput.files[i]);
+                        }
+                    }
+
+                    let isTempId = currentEditingNoteId && String(currentEditingNoteId).startsWith('temp_');
+                    let url = (currentEditingNoteId && !isTempId) ? `/api/notes/${currentEditingNoteId}` : '/api/notes';
+                    let method = 'POST';
+                    if (currentEditingNoteId && !isTempId) {
+                        formData.append('_method', 'PUT');
+                    }
+
+                    fetch(url, {
+                        method: method,
+                        headers: getAuthHeaders(true),
+                        body: formData
+                    })
+                        .then(res => res.json())
                         .then(response => {
                             if (response.status === 'success') {
-                                if (!currentEditingNoteId && response.data && response.data.id) {
+                                if ((!currentEditingNoteId || isTempId) && response.data && response.data.id) {
                                     currentEditingNoteId = response.data.id;
                                 }
                                 if (indicator) indicator.innerHTML = '<i class="bi bi-cloud-check text-success"></i> Saved to Cloud';
+                                // CHỐT CHẶN BẢO MẬT 1: Xóa sạch hàng đợi ô chọn file ngay sau khi đã đẩy lên mây thành công!
+                                if (noteImageInput) noteImageInput.value = '';
+
+                                // CHỐT CHẶN BẢO MẬT 2: Vẽ lại kho ảnh mới từ Server gửi về để cập nhật ID thật cho nút X xóa ảnh
+                                if (response.data && response.data.images) {
+                                    renderModalImages(response.data.images, true);
+                                }
                                 fetchAndRenderNotes();
                             } else {
-                                // API chạy được nhưng báo lỗi logic (Ví dụ: Chưa đăng nhập, thiếu dữ liệu)
-                                console.error("Lỗi từ API Backend:", response);
                                 if (indicator) indicator.innerHTML = '<i class="bi bi-exclamation-triangle text-danger"></i> ' + (response.message || 'Lỗi lưu Note');
                             }
                         })
                         .catch(err => {
-                            // 3. CÓ MẠNG NHƯNG SERVER API BỊ SẬP
-                            console.error("Save failed do lỗi Server:", err);
                             if (typeof db !== 'undefined' && db) {
-                                saveToIndexedDB("pending_sync", { id: currentEditingNoteId, ...payload, updated_at: new Date().toISOString() });
+                                const offlinePayload = { id: currentEditingNoteId, local_id: currentEditingNoteId, title: titleVal, content: contentVal, is_pinned: pinVal, updated_at: new Date().toISOString() };
+                                saveToIndexedDB("pending_sync", offlinePayload);
                                 if (indicator) indicator.innerHTML = '<i class="bi bi-hdd text-danger"></i> Saved locally (Backend API Error)';
-                            } else {
-                                if (indicator) indicator.innerHTML = '<i class="bi bi-x-circle text-danger"></i> Save failed';
                             }
                         });
                 }
@@ -546,54 +699,80 @@
                 noteTitleInput?.addEventListener('input', broadcastTypingStatus);
                 noteContentInput?.addEventListener('input', broadcastTypingStatus);
 
-                // --- 9. RESET MODAL KHI TẠO MỚI ---
+                // --- 9. RESET MODAL KHI BẤM NÚT TẠO MỚI ---
                 document.querySelector('[data-bs-target="#editorModal"]')?.addEventListener('click', function () {
                     currentEditingNoteId = null;
                     noteTitleInput.value = '';
                     noteContentInput.value = '';
                     isNotePinned = false;
                     updatePinButtonUI();
+                    document.querySelectorAll('#labelDropdownList input[type="checkbox"]').forEach(cb => cb.checked = false);
+                    if (imagePreviewArea) {
+                        imagePreviewArea.innerHTML = '';
+                        imagePreviewArea.classList.add('d-none');
+                    }
+                    if (noteImageInput) noteImageInput.value = '';
                     if (saveStatusIndicator) saveStatusIndicator.innerHTML = '<i class="bi bi-cloud"></i> New Note Ready';
                 });
 
-                // --- BẮT SỰ KIỆN KHÔI PHỤC KẾT NỐI MẠNG ĐỂ ĐỒNG BỘ (SYNC LOGIC) ---
-                window.addEventListener('online', function () {
-                    document.getElementById('offlineStatusAlert')?.addClass('d-none');
-                    console.log("🌐 Thiết bị đã kết nối mạng trở lại! Đang đồng bộ dữ liệu...");
+                // 🌟 TẠO HÀM ĐỒNG BỘ RIÊNG VÀ ĐÍNH KÈM VÀO WINDOW ĐỂ BÊN NGOÀI GỌI ĐƯỢC
+                window.syncPendingNotes = function () {
+                    if (!navigator.onLine) return;
 
                     readAllFromIndexedDB("pending_sync", function (pendingNotes) {
                         if (pendingNotes.length === 0) return;
+                        console.log(`🚀 Đang đồng bộ ${pendingNotes.length} notes lên server...`);
 
                         pendingNotes.forEach(note => {
-                            let url = note.id ? `/api/notes/${note.id}` : '/api/notes';
-                            let method = note.id ? 'PUT' : 'POST';
+                            let isNewNote = String(note.id).startsWith('temp_');
+                            let url = (!isNewNote && note.id) ? `/api/notes/${note.id}` : '/api/notes';
+                            let method = 'POST';
+
+                            const syncData = new FormData();
+                            syncData.append('title', note.title || '');
+                            syncData.append('content', note.content || '');
+                            syncData.append('is_pinned', note.is_pinned || 0);
+
+                            if (!isNewNote && note.id) {
+                                syncData.append('_method', 'PUT');
+                            }
 
                             fetch(url, {
                                 method: method,
-                                headers: getAuthHeaders(),
-                                body: JSON.stringify({ title: note.title, content: note.content, is_pinned: note.is_pinned })
+                                headers: getAuthHeaders(true),
+                                body: syncData
                             })
                                 .then(res => res.json())
                                 .then(response => {
                                     if (response.status === 'success') {
-                                        console.log(`✓ Đã đồng bộ note [${note.title}] lên Cloud thành công!`);
-                                        // Đồng bộ xong cái nào, xóa khỏi hàng đợi IndexedDB cái đó
                                         deleteFromIndexedDB("pending_sync", note.local_id);
+                                        console.log("✅ Đã đồng bộ thành công note tạm: ", note.local_id);
                                     }
                                 });
                         });
+
                         setTimeout(() => fetchAndRenderNotes(), 2000);
                     });
+                };
+
+                // --- BẮT SỰ KIỆN KHÔI PHỤC KẾT NỐI MẠNG ĐỂ ĐỒNG BỘ (SYNC LOGIC) ---
+                window.addEventListener('online', function () {
+                    document.getElementById('offlineStatusAlert')?.classList.add('d-none');
+                    window.syncPendingNotes();
                 });
 
                 window.addEventListener('offline', function () {
                     document.getElementById('offlineStatusAlert')?.classList.remove('d-none');
                 });
 
+                // 🌟 GỌI ĐỒNG BỘ NẾU DATABASE ĐÃ SẴN SÀNG TRƯỚC KHI DOM LOAD XONG
+                if (db) {
+                    window.syncPendingNotes();
+                }
 
                 // --- CÁC ĐOẠN CODE API TÍCH HỢP CHO LABELS, PASSWORD, SHARE ---
                 function fetchLabels() {
-                    if (!navigator.onLine) return; // Các tính năng quản lý nhãn sâu chỉ chạy online
+                    if (!navigator.onLine) return;
                     fetch('/api/labels', { method: 'GET', headers: getAuthHeaders() })
                         .then(res => res.json())
                         .then(response => {
@@ -604,7 +783,10 @@
                                 if (sidebar) {
                                     sidebar.innerHTML = `<a href="#" class="list-group-item list-group-item-action active border-0 label-filter-item" onclick="filterByLabel('')"><i class="bi bi-collection"></i> All Notes</a>`;
                                     labels.forEach(lbl => {
-                                        sidebar.innerHTML += `<a href="#" class="list-group-item list-group-item-action border-0 d-flex justify-content-between align-items-center label-filter-item" onclick="filterByLabel(${lbl.id})"><span><i class="bi bi-tag"></i> ${lbl.name}</span></a>`;
+                                        sidebar.innerHTML += `<a href="#" class="list-group-item list-group-item-action border-0 d-flex justify-content-between align-items-center label-filter-item" onclick="filterByLabel(${lbl.id})">
+                                                                        <span><i class="bi bi-tag"></i> ${lbl.name}</span>
+                                                                        <span class="badge bg-secondary rounded-pill">${lbl.notes_count || 0}</span>
+                                                                    </a>`;
                                     });
                                 }
 
@@ -613,21 +795,30 @@
                                     manager.innerHTML = '';
                                     labels.forEach(lbl => {
                                         manager.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                                                                                    <input type="text" class="form-control border-0 shadow-none bg-transparent" value="${lbl.name}" readonly>
-                                                                                    <button type="button" class="btn btn-sm btn-outline-danger border-0 btn-delete-label" onclick="window.deleteLabel(${lbl.id})"><i class="bi bi-trash"></i></button>
-                                                                                </li>`;
+                                                                        <input type="text" class="form-control border-0 shadow-none bg-transparent" value="${lbl.name}" readonly>
+                                                                        <button type="button" class="btn btn-sm btn-outline-danger border-0 btn-delete-label" onclick="window.deleteLabel(${lbl.id})"><i class="bi bi-trash"></i></button>
+                                                                    </li>`;
                                     });
                                 }
 
                                 const dropdown = document.getElementById('labelDropdownList');
                                 if (dropdown) {
+                                    const checkedLabelIds = Array.from(dropdown.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+
                                     dropdown.innerHTML = `<li><h6 class="dropdown-header">Assign Label</h6></li>`;
                                     labels.forEach(lbl => {
-                                        dropdown.innerHTML += `<li><a class="dropdown-item d-flex align-items-center" href="#"><input class="form-check-input me-2 mt-0" type="checkbox" value="${lbl.id}" id="label_${lbl.id}"><label class="form-check-label w-100" for="label_${lbl.id}">${lbl.name}</label></a></li>`;
+                                        const isChecked = checkedLabelIds.includes(lbl.id.toString()) ? 'checked' : '';
+                                        dropdown.innerHTML += `<li><a class="dropdown-item d-flex align-items-center" href="#"><input class="form-check-input me-2 mt-0" type="checkbox" value="${lbl.id}" id="label_${lbl.id}" ${isChecked}><label class="form-check-label w-100" for="label_${lbl.id}">${lbl.name}</label></a></li>`;
                                     });
                                 }
                             }
                         });
+                    document.getElementById('labelDropdownList')?.addEventListener('change', function (e) {
+                        if (e.target.type === 'checkbox') {
+                            triggerAutoSave();
+                            setTimeout(() => fetchLabels(), 1500);
+                        }
+                    });
                 }
 
                 window.deleteLabel = function (labelId) {
@@ -655,7 +846,7 @@
 
                 fetchLabels();
 
-                // --- API 8 & 9: BẢO MẬT MẬT KHẨU NOTE ---
+                // --- BẢO MẬT MẬT KHẨU NOTE ---
                 document.getElementById('btnSavePassword')?.addEventListener('click', function () {
                     if (!currentEditingNoteId) return alert('Vui lòng lưu nội dung note trước khi đặt mật khẩu!');
                     const pass = document.getElementById('notePassword').value;
@@ -689,25 +880,107 @@
                     });
                 }
 
-                // --- API 10: CHIA SẺ NOTE ---
+                // --- QUẢN LÝ CHIA SẺ NOTE ---
+                const shareManagerModalEl = document.getElementById('shareManagerModal');
+                let shareModal = null;
+                if (shareManagerModalEl) {
+                    shareModal = new bootstrap.Modal(shareManagerModalEl);
+                }
+
                 document.getElementById('btnShareNote')?.addEventListener('click', function () {
                     if (!currentEditingNoteId) return alert('Vui lòng gõ nội dung để lưu note trước khi chia sẻ!');
-                    const email = prompt("Nhập email người bạn muốn chia sẻ:");
-                    if (!email) return;
+                    loadSharedUsers();
+                    if (shareModal) shareModal.show();
+                });
+
+                function loadSharedUsers() {
+                    const list = document.getElementById('sharedUsersList');
+                    if (!list) return;
+                    list.innerHTML = '<li class="list-group-item text-center border-0"><span class="spinner-border spinner-border-sm text-primary"></span> Loading...</li>';
+
+                    fetch(`/api/notes/${currentEditingNoteId}/shared-users`, { headers: getAuthHeaders() })
+                        .then(res => res.json())
+                        .then(response => {
+                            list.innerHTML = '';
+                            if (response.data.length === 0) {
+                                list.innerHTML = '<li class="list-group-item text-muted text-center small border-0 py-4"><i class="bi bi-lock" style="font-size:2rem;"></i><br>Private. Not shared with anyone yet.</li>';
+                                return;
+                            }
+                            response.data.forEach(user => {
+                                const isView = user.permission === 'view' ? 'selected' : '';
+                                const isEdit = user.permission === 'edit' ? 'selected' : '';
+
+                                list.innerHTML += `
+                                                                <li class="list-group-item d-flex justify-content-between align-items-center px-0 border-bottom-dashed">
+                                                                    <div class="text-truncate" style="max-width: 60%;" title="${user.recipient_email}">
+                                                                        <i class="bi bi-person-circle me-2 fs-5 text-secondary align-middle"></i>
+                                                                        <strong class="align-middle">${user.recipient_email}</strong>
+                                                                    </div>
+                                                                    <div class="d-flex gap-2 align-items-center">
+                                                                        <select class="form-select form-select-sm text-secondary border-0 bg-body-tertiary fw-bold" style="width: 85px; cursor: pointer;" onchange="updatePermission('${user.recipient_email}', this.value)">
+                                                                            <option value="view" ${isView}>View</option>
+                                                                            <option value="edit" ${isEdit}>Edit</option>
+                                                                        </select>
+
+                                                                        <button class="btn btn-sm btn-outline-danger border-0" onclick="revokeShare('${user.recipient_email}')" title="Revoke Access">
+                                                                            <i class="bi bi-person-x-fill"></i>
+                                                                        </button>
+                                                                    </div>
+                                                                </li>
+                                                            `;
+                            });
+                        });
+                }
+
+                window.updatePermission = function (email, newPermission) {
+                    fetch(`/api/notes/${currentEditingNoteId}/share`, {
+                        method: 'POST',
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify({ recipient_email: email, permission: newPermission })
+                    }).then(res => res.json()).then(res => {
+                        if (res.status === 'success') {
+                            console.log(`Đã đổi quyền của ${email} thành ${newPermission}`);
+                        } else {
+                            alert(res.message);
+                            loadSharedUsers();
+                        }
+                    });
+                };
+
+                document.getElementById('btnSubmitShare')?.addEventListener('click', function () {
+                    const email = document.getElementById('shareEmailInput').value.trim();
+                    const perm = document.getElementById('sharePermissionSelect').value;
+                    if (!email) return alert('Vui lòng nhập email!');
+
+                    const btn = this; btn.innerHTML = '...'; btn.disabled = true;
 
                     fetch(`/api/notes/${currentEditingNoteId}/share`, {
                         method: 'POST',
                         headers: getAuthHeaders(),
-                        body: JSON.stringify({ recipient_email: email, permission: 'edit' })
-                    }).then(res => res.json()).then(response => {
-                        if (response.status === 'success') alert(`Đã chia sẻ note cho ${email} thành công!`);
-                        else alert(response.message || 'Chia sẻ thất bại.');
+                        body: JSON.stringify({ recipient_email: email, permission: perm })
+                    }).then(res => res.json()).then(res => {
+                        btn.innerHTML = 'Share'; btn.disabled = false;
+                        if (res.status === 'success') {
+                            document.getElementById('shareEmailInput').value = '';
+                            loadSharedUsers();
+                        } else alert(res.message);
                     });
                 });
+
+                window.revokeShare = function (email) {
+                    if (!confirm(`Bạn có chắc chắn muốn thu hồi quyền truy cập của ${email}?`)) return;
+                    fetch(`/api/notes/${currentEditingNoteId}/share/revoke`, {
+                        method: 'POST',
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify({ recipient_email: email })
+                    }).then(res => res.json()).then(res => {
+                        loadSharedUsers();
+                    });
+                };
             });
 
             // ==============================================================
-            // CÁC HÀM BỔ TRỢ ĐỌC/GHI ĐỘC LẬP VÀO INDEXEDDB (Tiêu chí 27)
+            // CÁC HÀM BỔ TRỢ ĐỌC/GHI ĐỘC LẬP VÀO INDEXEDDB
             // ==============================================================
             function saveToIndexedDB(storeName, data) {
                 if (!db) return;
@@ -734,5 +1007,26 @@
                 const tx = db.transaction(storeName, "readwrite");
                 tx.objectStore(storeName).delete(key);
             }
+            // KÍCH HOẠT ĐỂ THẺ HTML GỌI ĐƯỢC HÀM TỪ BÊN NGOÀI MODAL
+            window.deleteNoteImage = function (imageId, btnElement) {
+                if (!confirm('Bạn có chắc chắn muốn xóa hình ảnh này khỏi ghi chú?')) return;
+
+                fetch(`/api/notes/images/${imageId}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                })
+                    .then(res => res.json())
+                    .then(response => {
+                        if (response.status === 'success') {
+                            // Xóa hiệu ứng biến mất thẻ ảnh trên giao diện ngay lập tức
+                            btnElement.closest('.position-relative').remove();
+                            // Cập nhật lại danh sách note thu nhỏ ngoài màn hình chính
+                            if (typeof fetchAndRenderNotes === 'function') fetchAndRenderNotes();
+                        } else {
+                            alert(response.message || 'Lỗi hệ thống khi xóa ảnh.');
+                        }
+                    })
+                    .catch(err => console.error("Lỗi xóa ảnh:", err));
+            };
         </script>
 @endsection

@@ -9,8 +9,12 @@ class LabelController extends Controller
 {
     public function index(Request $request)
     {
-        $labels = $request->user()->labels()->orderBy('name', 'asc')->get();
-        return response()->json(['status' => 'success', 'data' => $labels]);
+        $labels = $request->user()->labels()->withCount('notes')->latest()->get();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $labels
+        ]);
     }
 
     public function store(Request $request)

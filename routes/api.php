@@ -6,7 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\NoteController;
 use App\Http\Controllers\LabelController;
 use App\Http\Controllers\SharedNoteController;
-
+use App\Http\Controllers\UserController;
 // ==========================================
 // ROUTES KHÔNG CẦN ĐĂNG NHẬP (GUEST)
 // ==========================================
@@ -46,6 +46,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/labels/{id}', [LabelController::class, 'update']);
     Route::delete('/labels/{id}', [LabelController::class, 'destroy']);
 
+    Route::post('/notes/{id}/share', [NoteController::class, 'share']);
+    Route::get('/notes/{id}/shared-users', [NoteController::class, 'getSharedUsers']);
+    Route::post('/notes/{id}/share/revoke', [NoteController::class, 'revokeShare']);
+
+    Route::get('/user/profile', [UserController::class, 'show']);
+    Route::post('/user/profile', [UserController::class, 'updateProfile']);
+    Route::put('/user/password', [UserController::class, 'changePassword']);
+
+    Route::delete('/notes/images/{id}', [NoteController::class, 'deleteImage']);
     // Test Token
     Route::get('/test-auth', function (Request $request) {
         return $request->user();

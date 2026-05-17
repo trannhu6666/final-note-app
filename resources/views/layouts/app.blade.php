@@ -21,24 +21,20 @@
             --note-bg-color: #ffffff;
         }
 
-        /* Đổi màu nền Navbar và các thẻ dùng bg-primary */
         .bg-primary {
             background-color: var(--bs-primary) !important;
         }
 
-        /* Đổi màu chữ */
         .text-primary {
             color: var(--bs-primary) !important;
         }
 
-        /* Đổi màu Nút bấm chính (Button Primary) */
         .btn-primary {
             background-color: var(--bs-primary) !important;
             border-color: var(--bs-primary) !important;
             color: #fff !important;
         }
 
-        /* Hiệu ứng khi di chuột vào nút (Đậm hơn một chút) */
         .btn-primary:hover,
         .btn-primary:focus,
         .btn-primary:active {
@@ -46,7 +42,6 @@
             border-color: #d63384 !important;
         }
 
-        /* Đổi màu Nút viền (Button Outline Primary) */
         .btn-outline-primary {
             color: var(--bs-primary) !important;
             border-color: var(--bs-primary) !important;
@@ -93,19 +88,17 @@
             color: #fff;
         }
 
-        /* --- USER PREFERENCES FOR ALL NOTE CARDS (Trang chủ & Shared with me) --- */
+        /* --- USER PREFERENCES FOR ALL NOTE CARDS --- */
         .note-card {
             background-color: var(--note-bg-color, #ffffff) !important;
         }
 
         .note-card .card-title {
-            /* Tiêu đề tự động to hơn font nội dung một chút */
             font-size: calc(var(--note-font-size, 1rem) + 0.25rem) !important;
         }
 
         .note-card .card-text {
             font-size: var(--note-font-size, 1rem) !important;
-            /* Cỡ chữ nội dung */
         }
     </style>
 </head>
@@ -121,7 +114,7 @@
 
             <div class="collapse navbar-collapse" id="navbarNav">
 
-                <form class="d-flex mx-auto w-50 my-2 my-lg-0">
+                <form class="d-flex mx-auto w-50 my-2 my-lg-0" onsubmit="event.preventDefault();">
                     <div class="input-group">
                         <span class="input-group-text border-0"><i class="bi bi-search"></i></span>
                         <input class="form-control border-0 shadow-none" type="search" id="search-box"
@@ -147,22 +140,18 @@
                                     Light</a></li>
                             <li><a class="dropdown-item" href="#" id="theme-dark"><i class="bi bi-moon-stars me-2"></i>
                                     Dark</a></li>
-
                             <li>
                                 <hr class="dropdown-divider">
                             </li>
-
                             <li>
                                 <h6 class="dropdown-header">Note Font Size</h6>
                             </li>
                             <li><a class="dropdown-item font-size-btn" href="#" data-size="0.875rem">Small</a></li>
                             <li><a class="dropdown-item font-size-btn" href="#" data-size="1rem">Medium</a></li>
                             <li><a class="dropdown-item font-size-btn" href="#" data-size="1.25rem">Large</a></li>
-
                             <li>
                                 <hr class="dropdown-divider">
                             </li>
-
                             <li>
                                 <h6 class="dropdown-header">Default Note Color</h6>
                             </li>
@@ -202,14 +191,19 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        // 1. Theme toggle
+        const savedTheme = localStorage.getItem('user_theme') || 'light';
+        document.documentElement.setAttribute('data-bs-theme', savedTheme);
+
         document.getElementById('theme-dark').addEventListener('click', (e) => {
             e.preventDefault();
             document.documentElement.setAttribute('data-bs-theme', 'dark');
+            localStorage.setItem('user_theme', 'dark'); // 🌟 Lưu lại chữ 'dark' vào bộ nhớ máy
         });
+
         document.getElementById('theme-light').addEventListener('click', (e) => {
             e.preventDefault();
             document.documentElement.setAttribute('data-bs-theme', 'light');
+            localStorage.setItem('user_theme', 'light'); // 🌟 Lưu lại chữ 'light' vào bộ nhớ máy
         });
 
         // 2. Thay đổi Font Size Note
@@ -231,7 +225,7 @@
             });
         }
 
-        // 5. Offline UI logic
+        // 4. Offline UI logic
         window.addEventListener('online', updateNetworkStatus);
         window.addEventListener('offline', updateNetworkStatus);
         function updateNetworkStatus() {
@@ -240,49 +234,7 @@
                 navigator.onLine ? badge.classList.add('d-none') : badge.classList.remove('d-none');
             }
         }
-        // --- 6. OFFLINE CAPABILITIES: SERVICE WORKER & INDEXEDDB ---
-        // Đăng ký Service Worker
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js').then(registration => {
-                    console.log('ServiceWorker registered successfully with scope: ', registration.scope);
-                }).catch(err => {
-                    console.log('ServiceWorker registration failed: ', err);
-                });
-            });
-        }
 
-        request.onupgradeneeded = (event) => {
-            db = event.target.result;
-            // Tạo bảng (Object Store) tên là 'offline_notes'
-            const objectStore = db.createObjectStore("offline_notes", { keyPath: "id", autoIncrement: true });
-            objectStore.createIndex("title", "title", { unique: false });
-            objectStore.createIndex("content", "content", { unique: false });
-            objectStore.createIndex("sync_status", "sync_status", { unique: false }); // Đánh dấu chưa đồng bộ
-            console.log("IndexedDB Setup Complete");
-        };
-
-        request.onsuccess = (event) => {
-            db = event.target.result;
-            console.log("IndexedDB Initialized Successfully");
-
-            // Nếu vừa có mạng lại, tiến hành đồng bộ dữ liệu (Sync) lên Server
-            if (navigator.onLine) {
-                syncOfflineNotesToServer();
-            }
-        };
-
-        window.addEventListener('online', () => {
-            // Khi có mạng lại, ẩn badge offline và tự động đồng bộ
-            document.getElementById('offline-badge')?.classList.add('d-none');
-            syncOfflineNotesToServer();
-        });
-
-        // Hàm giả lập đồng bộ dữ liệu (Dev Backend sẽ cung cấp API để bạn fetch vào đây)
-        function syncOfflineNotesToServer() {
-            console.log("Đang kiểm tra và đồng bộ dữ liệu từ IndexedDB lên Server...");
-            // Logic đọc từ IndexedDB và fetch() lên server sẽ nằm ở đây
-        }
     </script>
 </body>
 
