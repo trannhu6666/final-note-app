@@ -99,7 +99,9 @@ docker-compose exec app php artisan key:generate
 
 ## Step 5: Initialize Database & Permissions
 
-Run the following commands sequentially to create the isolated SQLite file, set proper Linux folder permissions, and seed the test data:
+> **💡 Note for Windows Users:** Do not worry about seeing Linux commands like `touch` or `chmod`. These commands are executed directly inside the Linux-based Docker container, so they will work perfectly on your Windows Command Prompt, PowerShell, or Git Bash!
+
+Run the following commands sequentially to create the isolated SQLite file, set proper folder permissions, and seed the test data:
 
 ```bash
 # 1. Initialize an empty SQLite database file
@@ -113,9 +115,6 @@ docker-compose exec app chmod -R 777 database storage bootstrap/cache public
 
 # 4. Run fresh migrations and seed pre-defined test accounts
 docker-compose exec app php artisan migrate:fresh --seed
-```
-
----
 
 ## Step 6: Build Frontend Assets (Vite)
 
