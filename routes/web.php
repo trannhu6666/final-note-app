@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-
+use App\Http\Controllers\AuthController;
 // Trang giới thiệu ban đầu
 Route::get('/', function () {
     return view('welcome');
@@ -35,19 +35,13 @@ Route::get('/logout', function () {
     return redirect('/');
 });
 
-// Trang yêu cầu gửi link reset mật khẩu (Email)
-Route::get('/password/reset', function () {
-    // Trỏ đúng vào thư mục auth/passwords/email.blade.php
-    return view('auth.passwords.forgot');
-});
-// Trang reset mật khẩu (Email)
+// Trang yêu cầu gửi link reset mật khẩu (Giao diện nhập Email)
 Route::get('/password/forgot', function () {
     return view('auth.passwords.forgot');
 });
-// Trang nhập mật khẩu mới (Sau khi có OTP/Link)
+
+// Trang nhập mật khẩu mới (Sau khi có OTP)
 Route::get('/password/update', function () {
     return view('auth.passwords.reset');
 });
-Route::get('/verify', function () {
-    return view('auth.verify');
-});
+Route::get('/verify', [AuthController::class, 'verify']);
