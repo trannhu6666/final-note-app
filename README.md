@@ -11,7 +11,7 @@
 - Client-Side Logic
 - Routing & API Architecture
 - Backend Controller Enhancement
-- Advanced Feature Implementation:
+- Advanced Feature Implementation
 - Localization & Compliance
 - DevOps & Environment Debugging
 
@@ -65,9 +65,23 @@ cp .env.example .env
 
 ---
 
-## Step 2: Start the Docker Containers
+## Step 2: Install Backend Dependencies (Vendor Generation)
 
-Build and run all backend, web server, and database services using Docker Compose:
+Since the production-optimized PHP backend container does not include a global development-ready Composer binary, we fetch all necessary core Laravel packages using an isolated, official Composer image from Docker Hub:
+
+```bash
+# For Linux / macOS / Git Bash / Command Prompt
+docker run --rm -v $(pwd):/app composer install
+
+# For Windows PowerShell
+docker run --rm -v ${PWD}:/app composer install
+```
+
+---
+
+## Step 3: Start the Docker Containers
+
+Build and initiate the backend ecosystem, web server, and WebSocket containers in detached background mode:
 
 ```bash
 docker-compose up -d --build
@@ -75,22 +89,9 @@ docker-compose up -d --build
 
 ---
 
-## Step 3: Install Backend Dependencies
-
-Use the included Composer executable to install Laravel's core packages inside the PHP container:
-
-```bash
-docker-compose exec app php composer.phar install
-```
-
-> ⚠️ **IMPORTANT WARNING:**  
-> Do **NOT** open or edit the `composer.phar` file in your code editor (like VS Code). It is a compiled binary archive, not a regular text file. Opening it will cause your editor to display syntax errors, and saving it may permanently corrupt the file!
-
----
-
 ## Step 4: Configure the Application
 
-Generate the Laravel application encryption key to secure your session data:
+Generate the unique Laravel application encryption key to secure session cookies and data transmission hashes:
 
 ```bash
 docker-compose exec app php artisan key:generate
@@ -102,24 +103,27 @@ docker-compose exec app php artisan key:generate
 
 > **💡 Note for Windows Users:** Do not worry about seeing Linux commands like `touch` or `chmod`. These commands are executed directly inside the Linux-based Docker container, so they will work perfectly on your Windows Command Prompt, PowerShell, or Git Bash!
 
-Run the following commands sequentially to create the isolated SQLite file, set proper folder permissions, and seed the test data:
+Run the following commands sequentially to create the isolated SQLite file, link attachment assets, and seed the testing data:
 
 ```bash
 # 1. Initialize an empty SQLite database file
 docker-compose exec app touch database/database.sqlite
 
-# 2. Create a symbolic link for uploaded files (e.g., User Avatars)
+# 2. Create a symbolic link for uploaded files (e.g., User Avatars, Note Images)
 docker-compose exec app php artisan storage:link
 
-# 3. Grant full read/write permissions to prevent 500 Internal Server Errors
+# 3. Grant full read/write permissions to directories to prevent 500 internal errors
 docker-compose exec app chmod -R 777 database storage bootstrap/cache public
 
-# 4. Run fresh migrations and seed pre-defined test accounts
+# 4. Run fresh migrations and seed pre-defined evaluation accounts
 docker-compose exec app php artisan migrate:fresh --seed
+```
+
+---
 
 ## Step 6: Build Frontend Assets (Vite)
 
-Use an isolated Node.js container to install NPM packages and compile the frontend interface without crashing the active WebSocket server:
+Use an isolated Node.js container to install NPM packages and compile the frontend production interface bundles without crashing the active network ports:
 
 ```bash
 # 1. Install Node modules
@@ -131,27 +135,29 @@ docker-compose run --rm websocket npm run build
 
 ---
 
-## Step 7: Final Permissions & Restart
+## Step 7: Final Permissions & Container Reset (Prevent 502 Errors)
 
-Because the Node container generates frontend build files with root privileges, you must explicitly grant read/write permissions to the `public` and `storage` directories. This ensures Nginx can serve your CSS/JS files and users can successfully upload Avatar images.
+Because the Node container compiles static assets using root privileges, we must reset the directory permissions. Additionally, to clear Nginx's internal upstream DNS caching and completely prevent 502 Bad Gateway errors, flush and sync the containers simultaneously:
 
 ```bash
-# 1. Grant permissions for assets and image uploads
+# 1. Grant absolute permissions for compiled assets and image uploads
 docker-compose exec app chmod -R 777 public storage
 
-# 2. Restart services to apply all configurations to the WebSocket server
-docker-compose up -d
+# 2. Hard-reset the infrastructure to bind Nginx routing with the fresh PHP upstream container
+docker-compose down && docker-compose up -d
 ```
 
 ---
 
 # Application Access
 
-After completing all 7 steps successfully, access the application at:
+After completing all 7 steps successfully, access the application interface at:
 
 ```text
 http://localhost
 ```
+
+---
 
 # 5. TEST ACCOUNTS (CREDENTIALS)
 
@@ -177,6 +183,17 @@ Password: password123
 ---
 
 # 6. SPECIAL CONFIGURATIONS & ARCHITECTURE
+
+## Account Verification / Activation Flow Simulation
+To fulfill the **Better Approach** requirement for secure user authentication, newly registered accounts are set to `is_active = false` by default. An activation token is securely generated via Laravel's Cache facade and piped into the backend logging streams.
+
+To retrieve the simulation activation link and verify a profile, read the live telemetry log trace:
+```bash
+cat storage/logs/laravel.log
+```
+Simply extract the generated URL block (e.g., `http://localhost/verify?email=...&token=...`) from the text stream and paste it into your active browser tab to dynamically unlock the account.
+
+---
 
 ## Real-time Node.js WebSocket Server
 
@@ -222,7 +239,7 @@ To test offline functionality:
    - To `Offline`
 
 The application will continue functioning using:
-- Registered Service Worker (`sw.js`)
-- Client-side IndexedDB Storage
+- Registered Service Worker (`public/sw.js`)
+- Client-side IndexedDB Transaction Tables
 
-This allows note interactions and modifications to persist locally even without an internet connection.
+This allows note interactions, tag attachments, and structural modifications to persist locally when disconnected, queueing background synchronizations to update the main cloud servers once connectivity returns.
