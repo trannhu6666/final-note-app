@@ -15,8 +15,6 @@
         :root {
             --bs-primary: #e83e8c;
             --bs-primary-rgb: 232, 62, 140;
-
-            /* Thêm giá trị mặc định cho Note */
             --note-font-size: 1rem;
             --note-bg-color: #ffffff;
         }
@@ -113,7 +111,6 @@
             </button>
 
             <div class="collapse navbar-collapse" id="navbarNav">
-
                 <form class="d-flex mx-auto w-50 my-2 my-lg-0" onsubmit="event.preventDefault();">
                     <div class="input-group">
                         <span class="input-group-text border-0"><i class="bi bi-search"></i></span>
@@ -129,9 +126,7 @@
                 <ul class="navbar-nav align-items-center">
                     <li class="nav-item dropdown me-2">
                         <a class="nav-link dropdown-toggle text-white" href="#" id="userPrefDropdown" role="button"
-                            data-bs-toggle="dropdown">
-                            <i class="bi bi-gear-fill"></i>
-                        </a>
+                            data-bs-toggle="dropdown"><i class="bi bi-gear-fill"></i></a>
                         <ul class="dropdown-menu dropdown-menu-end shadow">
                             <li>
                                 <h6 class="dropdown-header">Theme</h6>
@@ -164,9 +159,7 @@
 
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle text-white" href="#" id="accountDropdown" role="button"
-                            data-bs-toggle="dropdown">
-                            <i class="bi bi-person-circle"></i>
-                        </a>
+                            data-bs-toggle="dropdown"><i class="bi bi-person-circle"></i></a>
                         <ul class="dropdown-menu dropdown-menu-end shadow">
                             <li><a class="dropdown-item" href="/profile/edit"><i class="bi bi-person me-2"></i>
                                     Profile</a></li>
@@ -184,6 +177,13 @@
         </div>
     </nav>
 
+    <div id="unverified-banner" class="alert alert-warning text-center d-none mb-0 rounded-0 shadow-sm"
+        style="z-index: 1000;" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2 text-danger"></i>
+        <strong>Tài khoản chưa xác thực!</strong> Bạn hiện có thể dùng mọi tính năng, nhưng vui lòng kiểm tra email
+        và nhấp vào link kích hoạt để hoàn tất quá trình.
+    </div>
+
     <main class="container-fluid px-4 mt-4">
         @yield('content')
     </main>
@@ -191,22 +191,23 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
+        // 1. Theme Logic
         const savedTheme = localStorage.getItem('user_theme') || 'light';
         document.documentElement.setAttribute('data-bs-theme', savedTheme);
 
         document.getElementById('theme-dark').addEventListener('click', (e) => {
             e.preventDefault();
             document.documentElement.setAttribute('data-bs-theme', 'dark');
-            localStorage.setItem('user_theme', 'dark'); // 🌟 Lưu lại chữ 'dark' vào bộ nhớ máy
+            localStorage.setItem('user_theme', 'dark');
         });
 
         document.getElementById('theme-light').addEventListener('click', (e) => {
             e.preventDefault();
             document.documentElement.setAttribute('data-bs-theme', 'light');
-            localStorage.setItem('user_theme', 'light'); // 🌟 Lưu lại chữ 'light' vào bộ nhớ máy
+            localStorage.setItem('user_theme', 'light');
         });
 
-        // 2. Thay đổi Font Size Note
+        // 2. Font Size Logic
         const fontBtns = document.querySelectorAll('.font-size-btn');
         fontBtns.forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -216,7 +217,7 @@
             });
         });
 
-        // 3. Thay đổi màu nền Note
+        // 3. Color Logic
         const colorPicker = document.getElementById('defaultNoteColor');
         if (colorPicker) {
             colorPicker.addEventListener('input', (e) => {
@@ -225,7 +226,7 @@
             });
         }
 
-        // 4. Offline UI logic
+        // 4. Offline UI Logic
         window.addEventListener('online', updateNetworkStatus);
         window.addEventListener('offline', updateNetworkStatus);
         function updateNetworkStatus() {
@@ -234,6 +235,35 @@
                 navigator.onLine ? badge.classList.add('d-none') : badge.classList.remove('d-none');
             }
         }
+
+        // 🌟 5. LOGIC KIỂM TRA TÀI KHOẢN CHƯA KÍCH HOẠT (Toàn cục)
+        document.addEventListener('DOMContentLoaded', function () {
+            const token = localStorage.getItem('user_token');
+            if (token) {
+                fetch('/api/user/profile', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                })
+                    .then(res => res.json())
+                    .then(response => {
+                        if (response.status === 'success' && response.data) {
+                            const user = response.data;
+                            const banner = document.getElementById('unverified-banner');
+
+                            // Kiểm tra nếu is_active = 0 hoặc email_verified_at = null
+                            if (user.is_active == 0 || user.email_verified_at == null) {
+                                banner.classList.remove('d-none'); // Bật banner vàng lên
+                            } else {
+                                banner.classList.add('d-none'); // Tắt banner nếu đã kích hoạt
+                            }
+                        }
+                    })
+                    .catch(err => console.error("Lỗi kiểm tra trạng thái kích hoạt:", err));
+            }
+        });
 
     </script>
 </body>

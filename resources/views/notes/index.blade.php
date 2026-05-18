@@ -417,20 +417,20 @@
                         const col = document.createElement('div');
                         col.className = 'col-12 note-wrapper';
                         col.innerHTML = `
-                                                        <div class="card h-100 shadow-sm note-card" style="cursor: pointer;" data-id="${note.id}">
-                                                            <div class="card-body">
-                                                                <h5 class="card-title fw-bold d-flex justify-content-between align-items-start">
-                                                                    ${note.title || 'Untitled'}<div>${iconsHtml}</div>
-                                                                </h5>
-                                                                <p class="card-text mb-1">${displayContent}</p>
-                                                                ${imagesThumbnailHtml}
-                                                                <div class="note-labels-area">${labelsHtml}</div>
-                                                            </div>
-                                                            <div class="card-footer bg-transparent border-top-0 text-muted small d-flex justify-content-between align-items-center">
-                                                                <span><i class="bi bi-clock"></i> ${note.updated_at ? new Date(note.updated_at).toLocaleString() : 'Vừa xong'}</span>
-                                                                <button class="btn btn-sm btn-light btn-delete" data-id="${note.id}"><i class="bi bi-trash text-danger"></i></button>
-                                                            </div>
-                                                        </div>`;
+                                                            <div class="card h-100 shadow-sm note-card" style="cursor: pointer;" data-id="${note.id}">
+                                                                <div class="card-body">
+                                                                    <h5 class="card-title fw-bold d-flex justify-content-between align-items-start">
+                                                                        ${note.title || 'Untitled'}<div>${iconsHtml}</div>
+                                                                    </h5>
+                                                                    <p class="card-text mb-1">${displayContent}</p>
+                                                                    ${imagesThumbnailHtml}
+                                                                    <div class="note-labels-area">${labelsHtml}</div>
+                                                                </div>
+                                                                <div class="card-footer bg-transparent border-top-0 text-muted small d-flex justify-content-between align-items-center">
+                                                                    <span><i class="bi bi-clock"></i> ${note.updated_at ? new Date(note.updated_at).toLocaleString() : 'Vừa xong'}</span>
+                                                                    <button class="btn btn-sm btn-light btn-delete" data-id="${note.id}"><i class="bi bi-trash text-danger"></i></button>
+                                                                </div>
+                                                            </div>`;
 
                         col.querySelector('.note-card').addEventListener('click', function (e) {
                             if (e.target.closest('.btn-delete')) return;
@@ -467,17 +467,17 @@
                             let deleteBtnHtml = '';
                             if (isEditMode) {
                                 deleteBtnHtml = `
-                                                            <button type="button" class="btn btn-danger p-0 d-flex align-items-center justify-content-center rounded-circle position-absolute top-0 end-0" 
-                                                                style="width: 20px; height: 20px; transform: translate(30%, -30%); font-size: 0.75rem; z-index: 10;" 
-                                                                onclick="window.deleteNoteImage(${imgObj.id}, this)">
-                                                                <i class="bi bi-x"></i>
-                                                            </button>`;
+                                                                <button type="button" class="btn btn-danger p-0 d-flex align-items-center justify-content-center rounded-circle position-absolute top-0 end-0" 
+                                                                    style="width: 20px; height: 20px; transform: translate(30%, -30%); font-size: 0.75rem; z-index: 10;" 
+                                                                    onclick="window.deleteNoteImage(${imgObj.id}, this)">
+                                                                    <i class="bi bi-x"></i>
+                                                                </button>`;
                             }
 
                             wrapper.innerHTML = `
-                                                        <img src="${imgObj.image_url}" class="img-thumbnail" style="width: 75px; height: 75px; object-fit: cover;">
-                                                        ${deleteBtnHtml}
-                                                    `;
+                                                            <img src="${imgObj.image_url}" class="img-thumbnail" style="width: 75px; height: 75px; object-fit: cover;">
+                                                            ${deleteBtnHtml}
+                                                        `;
                             imagePreviewArea.appendChild(wrapper);
                         });
                     } else {
@@ -784,9 +784,9 @@
                                     sidebar.innerHTML = `<a href="#" class="list-group-item list-group-item-action active border-0 label-filter-item" onclick="filterByLabel('')"><i class="bi bi-collection"></i> All Notes</a>`;
                                     labels.forEach(lbl => {
                                         sidebar.innerHTML += `<a href="#" class="list-group-item list-group-item-action border-0 d-flex justify-content-between align-items-center label-filter-item" onclick="filterByLabel(${lbl.id})">
-                                                                        <span><i class="bi bi-tag"></i> ${lbl.name}</span>
-                                                                        <span class="badge bg-secondary rounded-pill">${lbl.notes_count || 0}</span>
-                                                                    </a>`;
+                                                                            <span><i class="bi bi-tag"></i> ${lbl.name}</span>
+                                                                            <span class="badge bg-secondary rounded-pill">${lbl.notes_count || 0}</span>
+                                                                        </a>`;
                                     });
                                 }
 
@@ -795,9 +795,9 @@
                                     manager.innerHTML = '';
                                     labels.forEach(lbl => {
                                         manager.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                                                                        <input type="text" class="form-control border-0 shadow-none bg-transparent" value="${lbl.name}" readonly>
-                                                                        <button type="button" class="btn btn-sm btn-outline-danger border-0 btn-delete-label" onclick="window.deleteLabel(${lbl.id})"><i class="bi bi-trash"></i></button>
-                                                                    </li>`;
+                                                                            <input type="text" class="form-control border-0 shadow-none bg-transparent" value="${lbl.name}" readonly>
+                                                                            <button type="button" class="btn btn-sm btn-outline-danger border-0 btn-delete-label" onclick="window.deleteLabel(${lbl.id})"><i class="bi bi-trash"></i></button>
+                                                                        </li>`;
                                     });
                                 }
 
@@ -911,23 +911,23 @@
                                 const isEdit = user.permission === 'edit' ? 'selected' : '';
 
                                 list.innerHTML += `
-                                                                <li class="list-group-item d-flex justify-content-between align-items-center px-0 border-bottom-dashed">
-                                                                    <div class="text-truncate" style="max-width: 60%;" title="${user.recipient_email}">
-                                                                        <i class="bi bi-person-circle me-2 fs-5 text-secondary align-middle"></i>
-                                                                        <strong class="align-middle">${user.recipient_email}</strong>
-                                                                    </div>
-                                                                    <div class="d-flex gap-2 align-items-center">
-                                                                        <select class="form-select form-select-sm text-secondary border-0 bg-body-tertiary fw-bold" style="width: 85px; cursor: pointer;" onchange="updatePermission('${user.recipient_email}', this.value)">
-                                                                            <option value="view" ${isView}>View</option>
-                                                                            <option value="edit" ${isEdit}>Edit</option>
-                                                                        </select>
+                                                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0 border-bottom-dashed">
+                                                                        <div class="text-truncate" style="max-width: 60%;" title="${user.recipient_email}">
+                                                                            <i class="bi bi-person-circle me-2 fs-5 text-secondary align-middle"></i>
+                                                                            <strong class="align-middle">${user.recipient_email}</strong>
+                                                                        </div>
+                                                                        <div class="d-flex gap-2 align-items-center">
+                                                                            <select class="form-select form-select-sm text-secondary border-0 bg-body-tertiary fw-bold" style="width: 85px; cursor: pointer;" onchange="updatePermission('${user.recipient_email}', this.value)">
+                                                                                <option value="view" ${isView}>View</option>
+                                                                                <option value="edit" ${isEdit}>Edit</option>
+                                                                            </select>
 
-                                                                        <button class="btn btn-sm btn-outline-danger border-0" onclick="revokeShare('${user.recipient_email}')" title="Revoke Access">
-                                                                            <i class="bi bi-person-x-fill"></i>
-                                                                        </button>
-                                                                    </div>
-                                                                </li>
-                                                            `;
+                                                                            <button class="btn btn-sm btn-outline-danger border-0" onclick="revokeShare('${user.recipient_email}')" title="Revoke Access">
+                                                                                <i class="bi bi-person-x-fill"></i>
+                                                                            </button>
+                                                                        </div>
+                                                                    </li>
+                                                                `;
                             });
                         });
                 }
@@ -982,6 +982,21 @@
             // ==============================================================
             // CÁC HÀM BỔ TRỢ ĐỌC/GHI ĐỘC LẬP VÀO INDEXEDDB
             // ==============================================================
+            function getSafeDB(callback) {
+                if (db) {
+                    callback(db);
+                } else {
+                    const req = indexedDB.open("MyNotesOfflineDB", 2);
+                    req.onsuccess = (e) => {
+                        db = e.target.result;
+                        callback(db);
+                    };
+                    req.onerror = (e) => {
+                        console.error("Lỗi mở IndexedDB: ", e);
+                        callback(null);
+                    };
+                }
+            }
             function saveToIndexedDB(storeName, data) {
                 if (!db) return;
                 const tx = db.transaction(storeName, "readwrite");
