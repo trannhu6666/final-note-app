@@ -50,15 +50,13 @@ To run this project seamlessly, ensure you have installed on your host machine:
 
 # 4. INSTALLATION & SETUP GUIDE (DOCKER DEPLOYMENT)
 
-Follow these steps carefully to build and start the entire application infrastructure locally.
-
-## Step 1
-Unzip the project folder and open a terminal inside the root directory.
+Follow these steps carefully to build and start the entire application infrastructure locally. This guide assumes you have just unzipped the project.
 
 ---
 
-## Step 2
-Copy the environment configuration file:
+## Step 1: Prepare the Environment
+
+Unzip the project folder and open a terminal inside the root directory. Copy the environment configuration file:
 
 ```bash
 cp .env.example .env
@@ -66,22 +64,32 @@ cp .env.example .env
 
 ---
 
-## Step 3
-Build and run all backend, frontend, and database services using Docker Compose:
+## Step 2: Start the Docker Containers
+
+Build and run all backend, web server, and database services using Docker Compose:
 
 ```bash
 docker-compose up -d --build
 ```
 
-This command automatically orchestrates and launches:
-- Nginx Web Server
-- PHP-FPM Application Container
-- Automated Node.js Environment
+---
+
+## Step 3: Install Backend Dependencies
+
+Use the included Composer executable to install Laravel's core packages inside the PHP container:
+
+```bash
+docker-compose exec app php composer.phar install
+```
+
+> ⚠️ **IMPORTANT WARNING:**  
+> Do **NOT** open or edit the `composer.phar` file in your code editor (like VS Code). It is a compiled binary archive, not a regular text file. Opening it will cause your editor to display syntax errors, and saving it may permanently corrupt the file!
 
 ---
 
-## Step 4
-Generate the Laravel application encryption key inside the running container:
+## Step 4: Configure the Application
+
+Generate the Laravel application encryption key to secure your session data:
 
 ```bash
 docker-compose exec app php artisan key:generate
@@ -89,41 +97,61 @@ docker-compose exec app php artisan key:generate
 
 ---
 
-## Step 5
-Run database migrations and seeders:
+## Step 5: Initialize Database & Permissions
+
+Run the following commands sequentially to create the isolated SQLite file, set proper Linux folder permissions, and seed the test data:
 
 ```bash
-docker-compose exec app php artisan migrate --seed
-```
+# 1. Initialize an empty SQLite database file
+docker-compose exec app touch database/database.sqlite
 
-> The project uses an isolated SQLite database located at:
+# 2. Create a symbolic link for uploaded files (e.g., User Avatars)
+docker-compose exec app php artisan storage:link
 
-```txt
-/var/www/database/database.sqlite
-```
+# 3. Grant full read/write permissions to prevent 500 Internal Server Errors
+docker-compose exec app chmod -R 777 database storage bootstrap/cache public
 
-This setup improves container portability and simplifies deployment.
-
----
-
-## Step 6
-Build production frontend assets using Vite:
-
-```bash
-docker-compose exec app npm run build
+# 4. Run fresh migrations and seed pre-defined test accounts
+docker-compose exec app php artisan migrate:fresh --seed
 ```
 
 ---
 
-## Application Access
+## Step 6: Build Frontend Assets (Vite)
 
-After all services are started successfully, access the application at:
+Use an isolated Node.js container to install NPM packages and compile the frontend interface without crashing the active WebSocket server:
 
-```txt
+```bash
+# 1. Install Node modules
+docker-compose run --rm websocket npm install
+
+# 2. Build the production frontend assets (CSS/JS)
+docker-compose run --rm websocket npm run build
+```
+
+---
+
+## Step 7: Final Permissions & Restart
+
+Because the Node container generates frontend build files with root privileges, you must explicitly grant read/write permissions to the `public` and `storage` directories. This ensures Nginx can serve your CSS/JS files and users can successfully upload Avatar images.
+
+```bash
+# 1. Grant permissions for assets and image uploads
+docker-compose exec app chmod -R 777 public storage
+
+# 2. Restart services to apply all configurations to the WebSocket server
+docker-compose up -d
+```
+
+---
+
+# Application Access
+
+After completing all 7 steps successfully, access the application at:
+
+```text
 http://localhost
 ```
-
----
 
 # 5. TEST ACCOUNTS (CREDENTIALS)
 
