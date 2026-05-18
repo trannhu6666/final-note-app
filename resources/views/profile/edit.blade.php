@@ -80,12 +80,11 @@
                     .then(response => {
                         if (response.status === 'success' && response.data) {
                             const user = response.data;
-                            document.getElementById('displayNameInput').value = user.name || '';
-                            localStorage.setItem('user_name', user.name || ''); // Cập nhật đồng bộ cache
+                            document.getElementById('displayNameInput').value = user.display_name || '';
+                            localStorage.setItem('user_name', user.display_name || '');
 
-                            // Nếu user đã có ảnh đại diện -> Đổi avatar thành avatar_url
                             if (user.avatar_url) {
-                                document.getElementById('avatarContainer').innerHTML = `<img src="${user.avatar_url}" style="width:100%; height:100%; object-fit:cover;">`;
+                                document.getElementById('avatarContainer').innerHTML = `<img src="${user.avatar_url}" style="width:100%; height:100%; object-fit:cover;" onerror="this.outerHTML='<i class=\\'bi bi-person\\'></i>'">`;
                             }
                         }
                     }).catch(err => console.error("Lỗi load profile:", err));
