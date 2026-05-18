@@ -2,18 +2,18 @@
 
 ## 1. TEAM MEMBERS
 
-### Dev A (Frontend UI/UX & Client Logic)
+### Dev A (Frontend UI/UX, Client Logic & Full-Stack Integration)
 - **Name:** Tran Thi Ngoc Nhu  
 - **Student ID:** 524H0021  
 
 #### Responsibilities
-- UI/UX Design
-- Responsive Layouts
-- Grid/List View Toggle
-- Live Search
-- Offline PWA Capabilities
-- Real-time WebSocket UI
-- Backend Integration (Modified & optimized Controllers for API endpoints)
+- **UI/UX & Frontend Core:**
+- **Client-Side Logic:** 
+- **Routing & API Architecture:** 
+- **Backend Controller Enhancement:** 
+- **Advanced Feature Implementation:** 
+- **Localization & Compliance:** 
+- **DevOps & Environment Debugging:** 
 
 ---
 
