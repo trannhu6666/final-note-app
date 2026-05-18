@@ -13,6 +13,7 @@
 - Live Search
 - Offline PWA Capabilities
 - Real-time WebSocket UI
+- Backend Integration (Modified & optimized Controllers for API endpoints)
 
 ---
 
