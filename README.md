@@ -34,7 +34,7 @@
 
 # 2. VIDEO DEMO LINK
 
-- **YouTube Link:** [Insert your YouTube video link here]
+- **GoogleDrive Link:** https://drive.google.com/file/d/141PhhwVy1zpAf2kWsjNqBXGLGXlohLw2/view?usp=sharing
 
 ---
 
@@ -60,7 +60,11 @@ Follow these steps carefully to build and start the entire application infrastru
 Unzip the project folder and open a terminal inside the root directory. Copy the environment configuration file:
 
 ```bash
+# For Linux / macOS / Git Bash / Command Prompt
 cp .env.example .env
+
+# For Windows PowerShell
+copy .env.example .env
 ```
 
 ---
