@@ -38,10 +38,16 @@ Route::get('/logout', function () {
 // Trang yêu cầu gửi link reset mật khẩu (Email)
 Route::get('/password/reset', function () {
     // Trỏ đúng vào thư mục auth/passwords/email.blade.php
-    return view('auth.passwords.email');
+    return view('auth.passwords.forgot');
 });
-
+// Trang reset mật khẩu (Email)
+Route::get('/password/forgot', function () {
+    return view('auth.passwords.forgot');
+});
 // Trang nhập mật khẩu mới (Sau khi có OTP/Link)
 Route::get('/password/update', function () {
     return view('auth.passwords.reset');
+});
+Route::get('/verify', function () {
+    return view('auth.verify');
 });

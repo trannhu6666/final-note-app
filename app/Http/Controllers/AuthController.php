@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use App\Mail\SendOtpMail;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
@@ -32,6 +34,19 @@ class AuthController extends Controller
             'password_hash' => Hash::make($request->password), // Mã hóa bcrypt
             'is_active' => false, // Theo yêu cầu, mặc định chưa kích hoạt
         ]);
+
+        // 🌟 LOGIC MỚI: TẠO TOKEN VÀ GHI LOG (GIẢ LẬP GỬI EMAIL KÍCH HOẠT)
+        $token = Str::random(40);
+
+        // Lưu token vào Cache 30 phút (Gắn với email của user)
+        Cache::put('verify_' . $request->email, $token, now()->addMinutes(30));
+
+        // In link kích hoạt ra file laravel.log
+        $activationLink = "http://localhost/verify?email={$request->email}&token={$token}";
+        Log::info("========================================");
+        Log::info("💌 BỨC THƯ KÍCH HOẠT TÀI KHOẢN MỚI");
+        Log::info("Chào mừng {$request->display_name}! Vui lòng nhấp vào link sau để kích hoạt: " . $activationLink);
+        Log::info("========================================");
 
         // Trả về JSON đúng cấu trúc yêu cầu
         return response()->json([
@@ -70,6 +85,7 @@ class AuthController extends Controller
                 'user' => [
                     'display_name' => $user->display_name,
                     'avatar_url' => $user->avatar_url,
+                    'is_active' => $user->is_active, // Trả thêm trạng thái để Frontend biết mà bật/tắt banner
                 ]
             ]
         ], 200);
@@ -143,5 +159,45 @@ class AuthController extends Controller
         ]);
 
         return response()->json(['status' => 'success', 'message' => 'Đổi mật khẩu thành công.']);
+    }
+
+    public function verify(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'token' => 'required|string',
+        ]);
+
+        // 1. Móc cái token trong Cache ra kiểm tra xem có khớp không
+        $cachedToken = Cache::get('verify_' . $request->email);
+
+        if (!$cachedToken || $cachedToken !== $request->token) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Link kích hoạt không hợp lệ hoặc đã hết hạn (quá 30 phút)!'
+            ], 400);
+        }
+
+        // 2. Nếu khớp, tìm User trong Database
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Không tìm thấy người dùng!'
+            ], 404);
+        }
+
+        // 3. Gạt công tắc is_active = 1 (Kích hoạt thành công)
+        $user->is_active = 1;
+        $user->save();
+
+        // 4. Xóa cái token trong Cache đi để không xài lại được nữa
+        Cache::forget('verify_' . $request->email);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Tài khoản đã được kích hoạt thành công!'
+        ]);
     }
 }

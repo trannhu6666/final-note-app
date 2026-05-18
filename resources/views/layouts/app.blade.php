@@ -254,7 +254,7 @@
                             const banner = document.getElementById('unverified-banner');
 
                             // Kiểm tra nếu is_active = 0 hoặc email_verified_at = null
-                            if (user.is_active == 0 || user.email_verified_at == null) {
+                            if (user.is_active == 0 || user.is_active === false) {
                                 banner.classList.remove('d-none'); // Bật banner vàng lên
                             } else {
                                 banner.classList.add('d-none'); // Tắt banner nếu đã kích hoạt
