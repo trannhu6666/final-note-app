@@ -180,8 +180,8 @@
     <div id="unverified-banner" class="alert alert-warning text-center d-none mb-0 rounded-0 shadow-sm"
         style="z-index: 1000;" role="alert">
         <i class="bi bi-exclamation-triangle-fill me-2 text-danger"></i>
-        <strong>Tài khoản chưa xác thực!</strong> Bạn hiện có thể dùng mọi tính năng, nhưng vui lòng kiểm tra email
-        và nhấp vào link kích hoạt để hoàn tất quá trình.
+        <strong>Account Unverified!</strong> You can currently use all features, but please check your email
+        and click the activation link to complete the process.
     </div>
 
     <main class="container-fluid px-4 mt-4">
@@ -236,7 +236,7 @@
             }
         }
 
-        // 🌟 5. LOGIC KIỂM TRA TÀI KHOẢN CHƯA KÍCH HOẠT (Toàn cục)
+        // 🌟 5. UNVERIFIED ACCOUNT CHECK LOGIC (Global)
         document.addEventListener('DOMContentLoaded', function () {
             const token = localStorage.getItem('user_token');
             if (token) {
@@ -253,15 +253,15 @@
                             const user = response.data;
                             const banner = document.getElementById('unverified-banner');
 
-                            // Kiểm tra nếu is_active = 0 hoặc email_verified_at = null
+                            // Check if is_active = 0 or email_verified_at = null
                             if (user.is_active == 0 || user.is_active === false) {
-                                banner.classList.remove('d-none'); // Bật banner vàng lên
+                                banner.classList.remove('d-none'); // Show the yellow banner
                             } else {
-                                banner.classList.add('d-none'); // Tắt banner nếu đã kích hoạt
+                                banner.classList.add('d-none'); // Hide the banner if activated
                             }
                         }
                     })
-                    .catch(err => console.error("Lỗi kiểm tra trạng thái kích hoạt:", err));
+                    .catch(err => console.error("Error checking activation status:", err));
             }
         });
 

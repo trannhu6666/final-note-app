@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-    <title>Khôi phục mật khẩu</title>
+    <title>Password Recovery</title>
 </head>
+
 <body>
-    <h2>Xin chào!</h2>
-    <p>Bạn đã yêu cầu khôi phục mật khẩu. Dưới đây là mã OTP của bạn:</p>
+    <h2>Hello!</h2>
+    <p>You recently requested to reset your password. Here is your OTP code:</p>
     <h1 style="color: blue; letter-spacing: 5px;">{{ $otp }}</h1>
-    <p>Mã này có hiệu lực trong 15 phút. Vui lòng không chia sẻ mã này cho bất kỳ ai.</p>
+    <p>This code is valid for 15 minutes. Please do not share this code with anyone.</p>
 </body>
+
 </html>

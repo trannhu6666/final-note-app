@@ -40,21 +40,18 @@
 
             if (registerForm) {
                 registerForm.addEventListener('submit', function (e) {
-                    e.preventDefault(); // Chặn hành vi tự động tải lại trang của trình duyệt
+                    e.preventDefault();
 
-                    // Lấy chính xác giá trị từ 4 ô nhập liệu
                     const emailValue = document.getElementById('regEmail').value;
                     const displayNameValue = document.getElementById('regName').value;
                     const passwordValue = document.getElementById('regPassword').value;
                     const confirmPasswordValue = document.getElementById('regConfirmPassword').value;
 
-                    // Kiểm tra nhanh ở Frontend xem hai mật khẩu có khớp nhau không
                     if (passwordValue !== confirmPasswordValue) {
-                        alert('Mật khẩu xác nhận không trùng khớp!');
+                        alert('Passwords do not match!');
                         return;
                     }
 
-                    // Gọi API số 1: POST /api/auth/register
                     fetch('/api/auth/register', {
                         method: 'POST',
                         headers: {
@@ -70,7 +67,7 @@
                         .then(res => res.json())
                         .then(response => {
                             if (response.status === 'success') {
-                                alert(response.message || 'Đăng ký tài khoản thành công! Hệ thống đang tự động đăng nhập...');
+                                alert(response.message || 'Registration successful! Automatically logging in...');
 
                                 return fetch('/api/auth/login', {
                                     method: 'POST',
@@ -79,14 +76,13 @@
                                 });
                             } else {
                                 if (response.message && typeof response.message === 'object') {
-                                    // Gom tất cả các thông báo lỗi (ví dụ lỗi password ngắn, lỗi trùng email...) lại thành chuỗi chữ
                                     let errorText = '';
                                     for (let key in response.message) {
                                         errorText += response.message[key].join('\n') + '\n';
                                     }
-                                    alert(errorText); // Hiển thị: "The password field must be at least 6 characters."
+                                    alert(errorText);
                                 } else {
-                                    alert(response.message || 'Đăng ký thất bại. Vui lòng thử lại!');
+                                    alert(response.message || 'Registration failed. Please try again!');
                                 }
                                 throw new Error('Registration logic failed on backend');
                             }
@@ -94,16 +90,14 @@
                         .then(res => res ? res.json() : null)
                         .then(loginResponse => {
                             if (loginResponse && loginResponse.status === 'success') {
-                                // Lưu Token và tên hiển thị vào máy giống màn hình Login
                                 localStorage.setItem('user_token', loginResponse.data.token);
                                 localStorage.setItem('user_name', loginResponse.data.user.display_name);
 
-                                // Đưa thẳng user vào personalized homepage để xem note luôn
                                 window.location.href = '/';
                             }
                         })
                         .catch(err => {
-                            console.error('Lỗi trong quá trình đăng ký/tự động đăng nhập:', err);
+                            console.error('Registration/Login error:', err);
                         });
                 });
             }

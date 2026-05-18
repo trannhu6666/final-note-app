@@ -9,36 +9,36 @@ use Illuminate\Support\Facades\DB;
 
 class SharedNoteController extends Controller
 {
-    // API Chia sẻ Note
+    // Share Note API
     public function share(Request $request, $id)
     {
-        // Phải là chủ sở hữu mới được quyền chia sẻ
+        // Must be the owner to have permission to share
         $note = $request->user()->notes()->findOrFail($id);
-        
+
         $request->validate([
             'recipient_email' => 'required|email|exists:users,email',
-            'permission' => 'required|in:read,edit'
+            'permission' => 'required|in:view,edit' // Updated 'read' to 'view' to match your frontend dropdown options perfectly
         ]);
 
         if ($request->recipient_email === $request->user()->email) {
-            return response()->json(['status' => 'error', 'message' => 'Không thể chia sẻ cho chính mình'], 400);
+            return response()->json(['status' => 'error', 'message' => 'You cannot share a note with yourself!'], 400);
         }
 
-        // Dùng updateOrCreate để nếu chia sẻ lại cho cùng 1 người thì chỉ cập nhật quyền
+        // Use updateOrCreate so if reshared with the same person, it only updates the permissions
         SharedNote::updateOrCreate(
             ['note_id' => $note->id, 'recipient_email' => $request->recipient_email],
             ['permission' => $request->permission, 'shared_at' => now()]
         );
 
-        return response()->json(['status' => 'success', 'message' => 'Đã chia sẻ ghi chú']);
+        return response()->json(['status' => 'success', 'message' => 'Note shared successfully!']);
     }
 
-    // API Lấy danh sách Note được chia sẻ (Shared with me)
+    // Get list of shared notes (Shared with me) API
     public function sharedWithMe(Request $request)
     {
         $userEmail = $request->user()->email;
-        
-        // Dùng Query Builder để join 3 bảng: shared_notes, notes và users (để lấy email chủ sở hữu)
+
+        // Use Query Builder to join 3 tables: shared_notes, notes, and users (to get owner email)
         $sharedNotes = DB::table('shared_notes')
             ->join('notes', 'shared_notes.note_id', '=', 'notes.id')
             ->join('users', 'notes.user_id', '=', 'users.id')

@@ -22,14 +22,14 @@ class SendOtpMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Mã OTP Khôi phục mật khẩu',
+            subject: 'Password Recovery OTP Code',
         );
     }
 
     public function content(): Content
     {
         return new Content(
-            view: 'emails.otp', // Chúng ta sẽ tạo file view này ngay sau đây
+            view: 'emails.otp', // We will create this view file next
         );
     }
 }

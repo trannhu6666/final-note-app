@@ -18,7 +18,7 @@
                     <div class="mb-3">
                         <div class="d-flex justify-content-between">
                             <label class="form-label">Password</label>
-                            <a href="/password/reset" class="small text-decoration-none">Forgot password?</a>
+                            <a href="/password/forgot" class="small text-decoration-none">Forgot password?</a>
                         </div>
                         <input type="password" id="loginPassword" class="form-control form-control-lg" required>
                     </div>
@@ -38,13 +38,11 @@
 
             if (loginForm) {
                 loginForm.addEventListener('submit', function (e) {
-                    e.preventDefault(); // Ngăn trình duyệt tự động load lại trang khi bấm nút
+                    e.preventDefault();
 
-                    // Lấy giá trị chữ mà người dùng đã gõ vào 2 ô nhập liệu
                     const emailValue = document.getElementById('loginEmail').value;
                     const passwordValue = document.getElementById('loginPassword').value;
 
-                    // Gọi API đăng nhập đến Backend của Dev B (Đúng theo API Document số 2)
                     fetch('/api/auth/login', {
                         method: 'POST',
                         headers: {
@@ -58,24 +56,21 @@
                         .then(res => res.json())
                         .then(response => {
                             if (response.status === 'success') {
-                                // Lưu Token xác thực do Backend cấp vào bộ nhớ máy để các trang sau dùng (API số 3, 4, 5...)
                                 localStorage.setItem('user_token', response.data.token);
                                 localStorage.setItem('user_name', response.data.user.display_name);
 
-                                // Chuyển hướng người dùng sang giao diện danh sách ghi chú (Personalized Homepage)
                                 window.location.href = '/notes';
                             } else {
-                                // Xử lý thông báo nếu tài khoản chưa kích hoạt hoặc sai thông tin
                                 if (response.message && response.message.includes('unverified')) {
                                     unverifiedAlert.classList.remove('d-none');
                                 } else {
-                                    alert(response.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại tài khoản!');
+                                    alert(response.message || 'Login failed. Please check your credentials!');
                                 }
                             }
                         })
                         .catch(err => {
-                            console.error('Lỗi khi gọi API đăng nhập:', err);
-                            alert('Không thể kết nối đến máy chủ API. Hãy chắc chắn rằng hệ thống Docker đang bật nhé!');
+                            console.error('Login API error:', err);
+                            alert('Cannot connect to the API server. Please make sure the Docker system is running!');
                         });
                 });
             }

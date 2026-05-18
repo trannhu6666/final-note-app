@@ -49,17 +49,17 @@
                 .then(res => res.json())
                 .then(response => {
                     if (response.status === 'success') {
-                        alert('Mã OTP đã được gửi! Vui lòng kiểm tra email của bạn.');
+                        alert('The OTP code has been sent! Please check your email.');
                         window.location.href = `/password/update?email=${encodeURIComponent(email)}`;
                     } else {
-                        alert(response.message || 'Không tìm thấy tài khoản với email này!');
+                        alert(response.message || 'No account found with this email address!');
                         btn.innerHTML = originalText;
                         btn.disabled = false;
                     }
                 })
                 .catch(err => {
                     console.error(err);
-                    alert('Lỗi kết nối máy chủ!');
+                    alert('Server connection error!');
                     btn.innerHTML = originalText;
                     btn.disabled = false;
                 });

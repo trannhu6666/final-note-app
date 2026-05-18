@@ -12,15 +12,15 @@ use Illuminate\Support\Facades\Storage;
 class NoteController extends Controller
 {
     /**
-     * API 1: Lấy danh sách Note - Trả về đúng phân hệ giao diện 🌟
+     * API 1: Get Notes list - Return the correct interface module 🌟
      */
     public function index(Request $request)
     {
-        // 1. Lấy từ khóa tìm kiếm từ thanh Search của Frontend gửi lên
+        // 1. Get the search keyword sent from the Frontend Search bar
         $searchKeyword = $request->query('search');
 
         if ($request->query('type') === 'shared' || $request->has('shared')) {
-            // LUỒNG 1: TRANG SHARED
+            // FLOW 1: SHARED PAGE
             $sharedRecords = DB::table('shared_notes')
                 ->where('recipient_email', $request->user()->email)
                 ->get();
@@ -31,7 +31,7 @@ class NoteController extends Controller
                 ->where('user_id', '!=', $request->user()->id)
                 ->with(['labels', 'images']);
 
-            // 🌟 LOGIC TÌM KIẾM: Lọc theo Tiêu đề hoặc Nội dung
+            // 🌟 SEARCH LOGIC: Filter by Title or Content
             if (!empty($searchKeyword)) {
                 $query->where(function ($q) use ($searchKeyword) {
                     $q->where('title', 'like', "%{$searchKeyword}%")
@@ -51,11 +51,11 @@ class NoteController extends Controller
             });
 
         } else {
-            // LUỒNG 2: TRANG CHỦ (All Notes)
+            // FLOW 2: HOMEPAGE (All Notes)
             $query = Note::where('user_id', $request->user()->id)
                 ->with(['labels', 'images']);
 
-            // 🌟 LOGIC TÌM KIẾM: Lọc theo Tiêu đề hoặc Nội dung
+            // 🌟 SEARCH LOGIC: Filter by Title or Content
             if (!empty($searchKeyword)) {
                 $query->where(function ($q) use ($searchKeyword) {
                     $q->where('title', 'like', "%{$searchKeyword}%")
@@ -63,7 +63,7 @@ class NoteController extends Controller
                 });
             }
 
-            // 🌟 LOGIC LỌC NHÃN (Nếu user bấm vào menu Label bên trái)
+            // 🌟 LABEL FILTER LOGIC (If user clicks on the Label menu on the left)
             if ($request->has('label_id') && $request->label_id !== '') {
                 $query->whereHas('labels', function ($q) use ($request) {
                     $q->where('labels.id', $request->label_id);
@@ -73,7 +73,7 @@ class NoteController extends Controller
             $notes = $query->latest()->get();
         }
 
-        // Xử lý gắn trạng thái khóa bảo mật
+        // Handle attaching security lock status
         $notes->each(function ($note) {
             $note->is_locked = !empty($note->note_password_hash);
             if ($note->is_locked) {
@@ -88,7 +88,7 @@ class NoteController extends Controller
     }
 
     /**
-     * API 2: Tạo mới Note kèm xử lý Upload mảng hình ảnh
+     * API 2: Create a new Note with Image array upload handling
      */
     public function store(Request $request)
     {
@@ -125,7 +125,7 @@ class NoteController extends Controller
     }
 
     /**
-     * API 3: Cập nhật Note - Cho phép cả chủ note và người được chia sẻ quyền 'edit' chỉnh sửa
+     * API 3: Update Note - Allow both note owner and shared users with 'edit' permission to modify
      */
     public function update(Request $request, $id)
     {
@@ -139,7 +139,7 @@ class NoteController extends Controller
         if ($note->user_id !== $request->user()->id && (!$sharedRecord || $sharedRecord->permission !== 'edit')) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Bạn không có quyền chỉnh sửa ghi chú này!'
+                'message' => 'You do not have permission to edit this note!'
             ], 403);
         }
         if ($request->has('sync_labels')) {
@@ -175,7 +175,7 @@ class NoteController extends Controller
     }
 
     /**
-     * API 4: Khóa Note bằng mật khẩu (Chỉ chủ Note mới được đổi/đặt pass)
+     * API 4: Lock Note with a password (Only the Note owner can change/set the password)
      */
     public function setPassword(Request $request, $id)
     {
@@ -195,18 +195,18 @@ class NoteController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Cập nhật mật khẩu bảo mật Note thành công!'
+            'message' => 'Note security password updated successfully!'
         ]);
     }
 
     /**
-     * API 5: Xác thực mật khẩu để mở khóa xem nội dung Note
+     * API 5: Verify password to unlock and view Note content
      */
     public function unlock(Request $request, $id)
     {
-        $note = Note::findOrFail($id); // Tìm note bất kể ai là chủ
+        $note = Note::findOrFail($id); // Find the note regardless of who the owner is
 
-        // Kiểm tra xem User hiện tại có quyền đụng vào note này không (Là chủ HOẶC được share)
+        // Check if the current User has permission to access this note (Is Owner OR is shared)
         $isOwner = $note->user_id === $request->user()->id;
         $isShared = DB::table('shared_notes')
             ->where('note_id', $id)
@@ -214,7 +214,7 @@ class NoteController extends Controller
             ->exists();
 
         if (!$isOwner && !$isShared) {
-            return response()->json(['status' => 'error', 'message' => 'Bạn không có quyền truy cập ghi chú này!'], 403);
+            return response()->json(['status' => 'error', 'message' => 'You do not have permission to access this note!'], 403);
         }
 
         $request->validate([
@@ -224,7 +224,7 @@ class NoteController extends Controller
         if (!Hash::check($request->password, $note->note_password_hash)) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Mật khẩu không chính xác!'
+                'message' => 'Incorrect password!'
             ], 403);
         }
 
@@ -237,13 +237,13 @@ class NoteController extends Controller
     }
 
     /**
-     * API 6: Xóa ghi chú
+     * API 6: Delete note
      */
     public function destroy(Request $request, $id)
     {
         $note = Note::with('images')->findOrFail($id);
 
-        // Trường hợp 1: Nếu là CHỦ SỞ HỮU -> Xóa vĩnh viễn
+        // Case 1: If OWNER -> Delete permanently
         if ($note->user_id === $request->user()->id) {
             if ($note->images && $note->images->count() > 0) {
                 foreach ($note->images as $image) {
@@ -252,24 +252,24 @@ class NoteController extends Controller
                 }
             }
             $note->delete();
-            return response()->json(['status' => 'success', 'message' => 'Xóa ghi chú thành công!']);
+            return response()->json(['status' => 'success', 'message' => 'Note deleted successfully!']);
         }
 
-        // Trường hợp 2: Nếu là NGƯỜI ĐƯỢC CHIA SẺ -> Chỉ xóa quyền xem của mình khỏi DB
+        // Case 2: If SHARED USER -> Only remove their view access from DB
         $sharedRecord = DB::table('shared_notes')
             ->where('note_id', $id)
             ->where('recipient_email', $request->user()->email);
 
         if ($sharedRecord->exists()) {
             $sharedRecord->delete();
-            return response()->json(['status' => 'success', 'message' => 'Đã gỡ ghi chú khỏi danh sách chia sẻ!']);
+            return response()->json(['status' => 'success', 'message' => 'Note removed from shared list!']);
         }
 
-        return response()->json(['status' => 'error', 'message' => 'Bạn không có quyền xóa ghi chú này!'], 403);
+        return response()->json(['status' => 'error', 'message' => 'You do not have permission to delete this note!'], 403);
     }
 
     /**
-     * API 7: Chia sẻ Note (Tạo mới hoặc Cập nhật quyền)
+     * API 7: Share Note (Create new or Update permissions)
      */
     public function share(Request $request, $id)
     {
@@ -280,11 +280,11 @@ class NoteController extends Controller
             'permission' => 'required|in:view,edit'
         ]);
 
-        // Chặn người dùng tự share cho chính mình
+        // Prevent users from sharing with themselves
         if (strtolower($request->recipient_email) === strtolower($request->user()->email)) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Bạn đang là chủ Note này, không thể tự chia sẻ cho chính mình!'
+                'message' => 'You are the owner of this Note, you cannot share it with yourself!'
             ]);
         }
 
@@ -298,11 +298,11 @@ class NoteController extends Controller
             ]
         );
 
-        return response()->json(['status' => 'success', 'message' => 'Chia sẻ thành công!']);
+        return response()->json(['status' => 'success', 'message' => 'Shared successfully!']);
     }
 
     /**
-     * API 8: Lấy danh sách những người đang được chia sẻ Note này
+     * API 8: Get a list of users this Note is shared with
      */
     public function getSharedUsers(Request $request, $id)
     {
@@ -310,14 +310,14 @@ class NoteController extends Controller
 
         $shares = DB::table('shared_notes')
             ->where('note_id', $id)
-            ->where('recipient_email', '!=', $request->user()->email) // 🌟 Ép loại bỏ email Chủ Note
+            ->where('recipient_email', '!=', $request->user()->email) // 🌟 Force removal of the Note Owner's email
             ->get();
 
         return response()->json(['status' => 'success', 'data' => $shares]);
     }
 
     /**
-     * API 9: Thu hồi quyền chia sẻ (Revoke)
+     * API 9: Revoke share access
      */
     public function revokeShare(Request $request, $id)
     {
@@ -327,21 +327,22 @@ class NoteController extends Controller
             ->where('recipient_email', $request->recipient_email)
             ->delete();
 
-        return response()->json(['status' => 'success', 'message' => 'Đã thu hồi quyền truy cập!']);
+        return response()->json(['status' => 'success', 'message' => 'Access revoked successfully!']);
     }
+
     /**
-     * API 12: Xóa một hình ảnh cụ thể ra khỏi Note (Khớp bảng note_images) 🌟
+     * API 12: Delete a specific image from a Note (Matches note_images table) 🌟
      */
     public function deleteImage(Request $request, $id)
     {
-        // Tìm hình ảnh trong bảng trung gian note_images theo đúng file thiết kế CK.docx
+        // Find the image in the note_images pivot table according to the CK.docx design file
         $image = DB::table('note_images')->where('id', $id)->first();
 
         if (!$image) {
-            return response()->json(['status' => 'error', 'message' => 'Hình ảnh không tồn tại!'], 404);
+            return response()->json(['status' => 'error', 'message' => 'Image does not exist!'], 404);
         }
 
-        // Bảo mật: Kiểm tra xem user hiện tại có quyền sửa note này không
+        // Security: Check if the current user has permission to edit this note
         $note = Note::findOrFail($image->note_id);
         $sharedRecord = DB::table('shared_notes')
             ->where('note_id', $note->id)
@@ -349,19 +350,19 @@ class NoteController extends Controller
             ->first();
 
         if ($note->user_id !== $request->user()->id && (!$sharedRecord || $sharedRecord->permission !== 'edit')) {
-            return response()->json(['status' => 'error', 'message' => 'Bạn không có quyền chỉnh sửa ghi chú này!'], 403);
+            return response()->json(['status' => 'error', 'message' => 'You do not have permission to edit this note!'], 403);
         }
 
-        // 1. Xóa file vật lý khỏi ổ đĩa Storage để tránh rác server
+        // 1. Delete physical file from Storage to avoid server clutter
         $filePath = str_replace('/storage/', '', $image->image_url);
         Storage::disk('public')->delete($filePath);
 
-        // 2. Xóa dòng dữ liệu trong bảng note_images
+        // 2. Delete data row in note_images table
         DB::table('note_images')->where('id', $id)->delete();
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Đã xóa hình ảnh thành công!'
+            'message' => 'Image deleted successfully!'
         ]);
     }
 }

@@ -55,7 +55,7 @@
             db = e.target.result;
         };
 
-        // Hàm lấy Token chung
+        // Function to get common Auth Headers
         function getAuthHeaders(isFormData = false) {
             const token = localStorage.getItem('user_token');
             const headers = {};
@@ -79,7 +79,7 @@
             const noteTitleInput = document.getElementById('noteTitle');
             const noteContentInput = document.getElementById('noteContent');
 
-            // --- 🌟 HÀM XỬ LÝ XEM TRƯỚC HÌNH ẢNH KHI NGƯỜI ĐƯỢC CHIA SẺ CHỌN FILE ---
+            // --- 🌟 HANDLE IMAGE PREVIEW WHEN SHARED USER SELECTS A FILE ---
             noteImageInput?.addEventListener('change', function () {
                 if (!imagePreviewArea) return;
                 imagePreviewArea.innerHTML = '';
@@ -105,7 +105,7 @@
                 }
             });
 
-            // --- 1. GỌI API LẤY DANH SÁCH NOTE ĐƯỢC CHIA SẺ ---
+            // --- 1. CALL API TO FETCH SHARED NOTES LIST ---
             function fetchSharedNotes() {
                 fetch('/api/notes?type=shared', {
                     method: 'GET',
@@ -114,7 +114,7 @@
                     .then(async res => {
                         const contentType = res.headers.get("content-type");
                         if (!contentType || !contentType.includes("application/json")) {
-                            throw new Error("API /api/notes/shared lỗi 500 hoặc chưa được code!");
+                            throw new Error("API /api/notes/shared is returning a 500 error or is not yet implemented!");
                         }
                         return res.json();
                     })
@@ -122,20 +122,20 @@
                         if (response.status === 'success') {
                             renderSharedNotes(response.data || []);
                         } else {
-                            alert(response.message || "Lấy danh sách thất bại!");
+                            alert(response.message || "Failed to fetch list!");
                         }
                     })
                     .catch(err => {
-                        console.error("Lỗi fetch shared notes:", err);
+                        console.error("Error fetching shared notes:", err);
                         container.innerHTML = `<div class="col-12 text-center text-danger py-5 border border-danger rounded bg-body-tertiary mt-3">
-                                                        <h5><i class="bi bi-bug"></i> Backend API Error</h5><p>${err.message}</p>
-                                                    </div>`;
+                                                            <h5><i class="bi bi-bug"></i> Backend API Error</h5><p>${err.message}</p>
+                                                        </div>`;
                     });
             }
-            // 🌟 EXPOSE HÀM RA WINDOW để hàm xóa ảnh bên ngoài có thể gọi tải lại dữ liệu công khai
+            // 🌟 EXPOSE FUNCTION TO WINDOW so external delete image function can call to refresh public data
             window.fetchSharedNotes = fetchSharedNotes;
 
-            // --- 2. RENDER DỮ LIỆU RA GIAO DIỆN ---
+            // --- 2. RENDER DATA TO UI ---
             function renderSharedNotes(notes) {
                 container.innerHTML = '';
 
@@ -165,31 +165,31 @@
                     const col = document.createElement('div');
                     col.className = 'col-md-4 note-wrapper';
                     col.innerHTML = `
-                                <div class="card h-100 note-card ${borderClass}" style="${cursorStyle}">
-                                    <div class="card-body">
-                                        <h5 class="card-title fw-bold">${note.title || 'Untitled'}</h5>
-                                        <p class="card-text text-muted" style="display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">${contentSnippet}</p>
-                                        ${imagesThumbnailHtml}
-                                    </div>
-                                    <div class="card-footer bg-transparent d-flex flex-column small border-top-0 pt-0">
-                                        <div class="d-flex justify-content-between align-items-center mb-2">
-                                            <span class="text-muted text-truncate" style="max-width: 60%;" title="${note.owner_email}">
-                                                <i class="bi bi-person-circle text-primary me-1"></i> ${note.owner_email}
-                                            </span>
-                                            <span class="text-muted" style="font-size: 0.75rem;">
-                                                <i class="bi bi-clock me-1"></i> ${new Date(note.shared_at).toLocaleDateString()}
+                                    <div class="card h-100 note-card ${borderClass}" style="${cursorStyle}">
+                                        <div class="card-body">
+                                            <h5 class="card-title fw-bold">${note.title || 'Untitled'}</h5>
+                                            <p class="card-text text-muted" style="display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">${contentSnippet}</p>
+                                            ${imagesThumbnailHtml}
+                                        </div>
+                                        <div class="card-footer bg-transparent d-flex flex-column small border-top-0 pt-0">
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <span class="text-muted text-truncate" style="max-width: 60%;" title="${note.owner_email}">
+                                                    <i class="bi bi-person-circle text-primary me-1"></i> ${note.owner_email}
+                                                </span>
+                                                <span class="text-muted" style="font-size: 0.75rem;">
+                                                    <i class="bi bi-clock me-1"></i> ${new Date(note.shared_at).toLocaleDateString()}
+                                                </span>
+                                            </div>
+                                            <span class="badge ${badgeClass} text-white w-auto align-self-start px-3 py-2 rounded-pill">
+                                                <i class="bi ${badgeIcon} me-1"></i> ${badgeText}
                                             </span>
                                         </div>
-                                        <span class="badge ${badgeClass} text-white w-auto align-self-start px-3 py-2 rounded-pill">
-                                            <i class="bi ${badgeIcon} me-1"></i> ${badgeText}
-                                        </span>
-                                    </div>
-                                </div>`;
+                                    </div>`;
 
                     if (isEdit) {
                         col.querySelector('.note-card').addEventListener('click', () => {
                             if (note.is_locked) {
-                                const pass = prompt("Ghi chú này đã được khóa bảo mật bởi Chủ sở hữu. Vui lòng nhập mật khẩu:");
+                                const pass = prompt("This note is password protected by the Owner. Please enter the password:");
                                 if (pass) unlockSharedNote(note.id, pass, note, isEdit);
                             } else {
                                 openSharedNoteEditor(note, isEdit);
@@ -203,7 +203,7 @@
 
             fetchSharedNotes();
 
-            // --- 3. LOGIC MỞ MODAL VÀ PHÂN QUYỀN EDITOR ---
+            // --- 3. MODAL OPEN LOGIC AND EDITOR PERMISSIONS ---
             function openSharedNoteEditor(note, isEdit) {
                 currentEditingNoteId = note.id;
 
@@ -240,12 +240,12 @@
                         noteObj.is_locked = false;
                         openSharedNoteEditor(noteObj, isEdit);
                     } else {
-                        alert("Mật khẩu không chính xác!");
+                        alert("Incorrect password!");
                     }
                 });
             }
 
-            // --- 4. AUTO-SAVE LÊN BACKEND BẰNG FORMDATA ---
+            // --- 4. AUTO-SAVE TO BACKEND USING FORMDATA ---
             let autoSaveTimeout;
             function triggerAutoSave() {
                 if (!currentEditingNoteId) return;
@@ -275,7 +275,7 @@
                         .then(res => res.json())
                         .then(response => {
                             if (response.status === 'success') {
-                                // 🌟 ĐÃ VÁ LỖI CHÍ MẠNG: Sửa từ 'indicator' thành 'saveStatusIndicator' để không sập JS
+                                // 🌟 FIXED CRITICAL BUG: Changed from 'indicator' to 'saveStatusIndicator' to prevent JS crash
                                 if (saveStatusIndicator) {
                                     saveStatusIndicator.innerHTML = '<i class="bi bi-cloud-check text-success"></i> Saved to Cloud';
                                 }
@@ -300,11 +300,11 @@
                 noteContentInput.addEventListener('input', triggerAutoSave);
             }
 
-            // --- 5. LOGIC WEBSOCKET REALTIME ---
+            // --- 5. WEBSOCKET REALTIME LOGIC ---
             let socket = null;
             function joinNoteRealtimeChannel(noteId) {
                 socket = new WebSocket('ws://localhost:8080');
-                socket.onopen = () => console.log(`🟢 Đã kết nối WebSocket cho Note chung: ${noteId}`);
+                socket.onopen = () => console.log(`🟢 WebSocket connected for Shared Note: ${noteId}`);
 
                 socket.onmessage = (event) => {
                     try {
@@ -373,7 +373,7 @@
             }
         });
 
-        // --- CÁC HÀM ĐỘC LẬP NGOÀI SCOPE DOM ---
+        // --- INDEPENDENT FUNCTIONS OUTSIDE DOM SCOPE ---
         function renderSharedModalImages(images, isEditMode) {
             const imagePreviewArea = document.getElementById('image-preview-area');
             if (!imagePreviewArea) return;
@@ -388,17 +388,17 @@
                     let deleteBtnHtml = '';
                     if (isEditMode) {
                         deleteBtnHtml = `
-                                <button type="button" class="btn btn-danger p-0 d-flex align-items-center justify-content-center rounded-circle position-absolute top-0 end-0" 
-                                    style="width: 20px; height: 20px; transform: translate(30%, -30%); font-size: 0.75rem; z-index: 10;" 
-                                    onclick="window.deleteSharedNoteImage(${imgObj.id}, this)">
-                                    <i class="bi bi-x"></i>
-                                </button>`;
+                                    <button type="button" class="btn btn-danger p-0 d-flex align-items-center justify-content-center rounded-circle position-absolute top-0 end-0" 
+                                        style="width: 20px; height: 20px; transform: translate(30%, -30%); font-size: 0.75rem; z-index: 10;" 
+                                        onclick="window.deleteSharedNoteImage(${imgObj.id}, this)">
+                                        <i class="bi bi-x"></i>
+                                    </button>`;
                     }
 
                     wrapper.innerHTML = `
-                            <img src="${imgObj.image_url}" class="img-thumbnail" style="width: 75px; height: 75px; object-fit: cover;">
-                            ${deleteBtnHtml}
-                        `;
+                                <img src="${imgObj.image_url}" class="img-thumbnail" style="width: 75px; height: 75px; object-fit: cover;">
+                                ${deleteBtnHtml}
+                            `;
                     imagePreviewArea.appendChild(wrapper);
                 });
             } else {
@@ -407,7 +407,7 @@
         }
 
         window.deleteSharedNoteImage = function (imageId, btnElement) {
-            if (!confirm('Bạn có chắc chắn muốn xóa hình ảnh này khỏi ghi chú?')) return;
+            if (!confirm('Are you sure you want to delete this image from the note?')) return;
 
             fetch(`/api/notes/images/${imageId}`, {
                 method: 'DELETE',
@@ -421,10 +421,10 @@
                             window.fetchSharedNotes();
                         }
                     } else {
-                        alert(response.message || 'Lỗi khi thực hiện xóa hình ảnh.');
+                        alert(response.message || 'Error occurred while deleting the image.');
                     }
                 })
-                .catch(err => console.error("Lỗi xóa ảnh trang shared:", err));
+                .catch(err => console.error("Error deleting image on shared page:", err));
         };
     </script>
 @endsection

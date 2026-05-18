@@ -15,13 +15,13 @@ use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
-    // API Đăng ký
+    // Register API
     public function register(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'email' => 'required|email|unique:users,email',
             'display_name' => 'required|string|max:255',
-            'password' => 'required|string|min:6|confirmed', // yêu cầu truyền lên password_confirmation
+            'password' => 'required|string|min:6|confirmed', // requires password_confirmation to be passed
         ]);
 
         if ($validator->fails()) {
@@ -31,31 +31,31 @@ class AuthController extends Controller
         $user = User::create([
             'email' => $request->email,
             'display_name' => $request->display_name,
-            'password_hash' => Hash::make($request->password), // Mã hóa bcrypt
-            'is_active' => false, // Theo yêu cầu, mặc định chưa kích hoạt
+            'password_hash' => Hash::make($request->password), // Bcrypt hashing
+            'is_active' => false, // Per requirements, default is not activated
         ]);
 
-        // 🌟 LOGIC MỚI: TẠO TOKEN VÀ GHI LOG (GIẢ LẬP GỬI EMAIL KÍCH HOẠT)
+        // 🌟 NEW LOGIC: CREATE TOKEN AND LOG (SIMULATE SENDING ACTIVATION EMAIL)
         $token = Str::random(40);
 
-        // Lưu token vào Cache 30 phút (Gắn với email của user)
+        // Save token to Cache for 30 minutes (Linked to user's email)
         Cache::put('verify_' . $request->email, $token, now()->addMinutes(30));
 
-        // In link kích hoạt ra file laravel.log
+        // Print activation link to laravel.log
         $activationLink = "http://localhost/verify?email={$request->email}&token={$token}";
         Log::info("========================================");
-        Log::info("💌 BỨC THƯ KÍCH HOẠT TÀI KHOẢN MỚI");
-        Log::info("Chào mừng {$request->display_name}! Vui lòng nhấp vào link sau để kích hoạt: " . $activationLink);
+        Log::info("💌 NEW ACCOUNT ACTIVATION EMAIL");
+        Log::info("Welcome {$request->display_name}! Please click the following link to activate your account: " . $activationLink);
         Log::info("========================================");
 
-        // Trả về JSON đúng cấu trúc yêu cầu
+        // Return JSON in the required structure
         return response()->json([
             'status' => 'success',
-            'message' => 'Vui lòng kiểm tra email để kích hoạt tài khoản'
+            'message' => 'Please check your email to activate your account'
         ], 201);
     }
 
-    // API Đăng nhập
+    // Login API
     public function login(Request $request)
     {
         $request->validate([
@@ -63,21 +63,21 @@ class AuthController extends Controller
             'password' => 'required|string',
         ]);
 
-        // Tìm user theo email
+        // Find user by email
         $user = User::where('email', $request->email)->first();
 
-        // Kiểm tra mật khẩu dựa trên cột password_hash
+        // Check password against password_hash column
         if (!$user || !Hash::check($request->password, $user->password_hash)) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Email hoặc mật khẩu không chính xác'
+                'message' => 'Incorrect email or password'
             ], 401);
         }
 
-        // Tạo Sanctum Token
+        // Create Sanctum Token
         $token = $user->createToken('auth_token')->plainTextToken;
 
-        // Trả về JSON đúng cấu trúc yêu cầu
+        // Return JSON in the required structure
         return response()->json([
             'status' => 'success',
             'data' => [
@@ -85,36 +85,36 @@ class AuthController extends Controller
                 'user' => [
                     'display_name' => $user->display_name,
                     'avatar_url' => $user->avatar_url,
-                    'is_active' => $user->is_active, // Trả thêm trạng thái để Frontend biết mà bật/tắt banner
+                    'is_active' => $user->is_active, // Return status for Frontend to toggle banner
                 ]
             ]
         ], 200);
     }
 
-    // API Quên mật khẩu - Gửi mã OTP
+    // Forgot Password API - Send OTP
     public function forgotPassword(Request $request)
     {
         $request->validate(['email' => 'required|email|exists:users,email']);
 
-        // Tạo mã OTP ngẫu nhiên 6 số
+        // Generate random 6-digit OTP
         $otp = rand(100000, 999999);
 
-        // Lưu vào bảng password_reset_tokens của Laravel
+        // Save to Laravel's password_reset_tokens table
         DB::table('password_reset_tokens')->updateOrInsert(
             ['email' => $request->email],
             [
-                'token' => Hash::make($otp), // Mã hóa OTP trong DB cho bảo mật
+                'token' => Hash::make($otp), // Hash OTP in DB for security
                 'created_at' => now()
             ]
         );
 
-        // Gửi email
+        // Send email
         Mail::to($request->email)->send(new SendOtpMail($otp));
 
-        return response()->json(['status' => 'success', 'message' => 'Mã OTP đã được gửi đến email của bạn.']);
+        return response()->json(['status' => 'success', 'message' => 'An OTP has been sent to your email.']);
     }
 
-    // API Đặt lại mật khẩu bằng OTP
+    // Reset Password with OTP API
     public function resetPassword(Request $request)
     {
         $request->validate([
@@ -126,21 +126,21 @@ class AuthController extends Controller
         $resetRecord = DB::table('password_reset_tokens')->where('email', $request->email)->first();
 
         if (!$resetRecord || !Hash::check($request->otp, $resetRecord->token)) {
-            return response()->json(['status' => 'error', 'message' => 'OTP không hợp lệ hoặc đã hết hạn.'], 400);
+            return response()->json(['status' => 'error', 'message' => 'Invalid or expired OTP.'], 400);
         }
 
-        // Cập nhật mật khẩu mới
+        // Update new password
         User::where('email', $request->email)->update([
             'password_hash' => Hash::make($request->password)
         ]);
 
-        // Xóa token sau khi dùng xong
+        // Delete token after use
         DB::table('password_reset_tokens')->where('email', $request->email)->delete();
 
-        return response()->json(['status' => 'success', 'message' => 'Đặt lại mật khẩu thành công.']);
+        return response()->json(['status' => 'success', 'message' => 'Password reset successful.']);
     }
 
-    // API Đổi mật khẩu (Dành cho user đã đăng nhập)
+    // Change Password API (For logged in users)
     public function changePassword(Request $request)
     {
         $request->validate([
@@ -151,16 +151,17 @@ class AuthController extends Controller
         $user = $request->user();
 
         if (!Hash::check($request->current_password, $user->password_hash)) {
-            return response()->json(['status' => 'error', 'message' => 'Mật khẩu hiện tại không đúng.'], 400);
+            return response()->json(['status' => 'error', 'message' => 'Current password is incorrect.'], 400);
         }
 
         $user->update([
             'password_hash' => Hash::make($request->new_password)
         ]);
 
-        return response()->json(['status' => 'success', 'message' => 'Đổi mật khẩu thành công.']);
+        return response()->json(['status' => 'success', 'message' => 'Password changed successfully.']);
     }
 
+    // VERIFY ACCOUNT API
     public function verify(Request $request)
     {
         $request->validate([
@@ -168,36 +169,36 @@ class AuthController extends Controller
             'token' => 'required|string',
         ]);
 
-        // 1. Móc cái token trong Cache ra kiểm tra xem có khớp không
+        // 1. Retrieve token from Cache to check if it matches
         $cachedToken = Cache::get('verify_' . $request->email);
 
         if (!$cachedToken || $cachedToken !== $request->token) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Link kích hoạt không hợp lệ hoặc đã hết hạn (quá 30 phút)!'
+                'message' => 'Invalid or expired activation link (exceeded 30 minutes)!'
             ], 400);
         }
 
-        // 2. Nếu khớp, tìm User trong Database
+        // 2. If it matches, find User in Database
         $user = User::where('email', $request->email)->first();
 
         if (!$user) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Không tìm thấy người dùng!'
+                'message' => 'User not found!'
             ], 404);
         }
 
-        // 3. Gạt công tắc is_active = 1 (Kích hoạt thành công)
+        // 3. Toggle is_active = 1 (Successfully activated)
         $user->is_active = 1;
         $user->save();
 
-        // 4. Xóa cái token trong Cache đi để không xài lại được nữa
+        // 4. Delete the token from Cache so it cannot be reused
         Cache::forget('verify_' . $request->email);
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Tài khoản đã được kích hoạt thành công!'
+            'message' => 'Account activated successfully!'
         ]);
     }
 }
