@@ -7,13 +7,13 @@
 - **Student ID:** 524H0021  
 
 #### Responsibilities
-- **UI/UX & Frontend Core:**
-- **Client-Side Logic:** 
-- **Routing & API Architecture:** 
-- **Backend Controller Enhancement:** 
-- **Advanced Feature Implementation:** 
-- **Localization & Compliance:** 
-- **DevOps & Environment Debugging:** 
+- UI/UX & Frontend Core
+- Client-Side Logic
+- Routing & API Architecture
+- Backend Controller Enhancement
+- Advanced Feature Implementation:
+- Localization & Compliance
+- DevOps & Environment Debugging
 
 ---
 
